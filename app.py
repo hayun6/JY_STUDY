@@ -1,18 +1,15 @@
 """준영이의 공부 기록장 · streamlit run app.py
+GitHub에 app.py와 requirements.txt를 업로드하고 Streamlit에서 app.py를 실행하세요.
+처음 접속하면 앱 화면에서 가족/부모님 비밀번호를 직접 설정할 수 있습니다.
+최초 설정 전에 URL을 공유하지 마세요. 비밀번호는 소금값을 포함한 PBKDF2 해시로 저장됩니다.
 
-배포: GitHub에 app.py / requirements.txt 업로드 → Streamlit Community Cloud 연결.
-Streamlit 앱 Settings → Secrets 에 아래 값을 입력하세요(실제 비밀번호로 바꾸세요).
-
-FAMILY_PASSWORD = "가족만 아는 긴 비밀번호"
-PARENT_PIN = "부모님만 아는 6자리 이상의 비밀번호"
-APP_URL = "https://실제앱주소.streamlit.app"
-# 영구 저장 권장: 외부 PostgreSQL 연결 URL (SSL 권장). 없으면 임시 SQLite.
-# DATABASE_URL = "postgresql+psycopg://사용자:비밀번호@호스트:5432/DB이름?sslmode=require"
-
-중요: GitHub 저장소에는 비밀번호, 사진, DB를 올리지 마세요.
-SQLite 파일은 Community Cloud 재배포/재시작 때 사라질 수 있습니다.
-알림은 앱 안의 알림함(20초마다 갱신)입니다. 앱을 닫은 휴대폰에 푸시되지 않습니다.
-사진은 EXIF 제거/축소 후 DB에 저장됩니다. 기프티콘 자동 구매·발송은 하지 않습니다.
+선택 사항: 앱 Secrets 또는 환경 변수
+APP_URL = "https://실제앱주소.streamlit.app"  # QR 생성용
+DATABASE_URL = "postgresql+psycopg://사용자:비밀번호@호스트:5432/DB이름?sslmode=require"
+외부 DB 미연결 시 임시 SQLite이므로 재배포/재시작에 기록과 비밀번호가 사라질 수 있습니다.
+최초 실행 때만 FAMILY_PASSWORD / PARENT_PIN 설정으로 화면 설정을 대체할 수도 있습니다.
+GitHub에는 비밀번호·사진·DB 파일을 올리지 마세요.
+알림은 앱 내부 알림입니다. 푸시/SMS 및 기프티콘 자동 구매·발송은 지원하지 않습니다.
 """
 from __future__ import annotations
 
@@ -82,14 +79,6 @@ h1,h2,h3 {color:#244b3e;letter-spacing:-.04em;}
 @media(max-width:480px){.hero{padding:24px 18px}.hero h1{font-size:2rem}.day{min-height:66px;padding:5px 2px}.day .label{font-size:.58rem}.calendar{gap:3px}}
 </style>""", unsafe_allow_html=True)
 
-family_password = config("FAMILY_PASSWORD")
-parent_pin = config("PARENT_PIN")
-if len(family_password) < 8 or len(parent_pin) < 6 or family_password == parent_pin:
-    st.title("🌱 준영이의 공부 기록장")
-    st.warning("먼저 앱 Secrets에 가족 비밀번호(8자 이상)와 부모님 비밀번호(6자 이상)를 서로 다르게 설정해 주세요.")
-    st.code('FAMILY_PASSWORD = "가족만아는긴비밀번호"\nPARENT_PIN = "부모님전용비밀번호"\nAPP_URL = "https://실제앱주소.streamlit.app"', language="toml")
-    st.info("app.py 맨 위에 배포·영구 저장소 설정 안내가 있어요. 비밀번호는 GitHub에 올리지 마세요.")
-    st.stop()
 
 
 def password_gate():
@@ -106,7 +95,7 @@ def password_gate():
         pw = st.text_input("우리 가족 비밀번호", type="password")
         ok = st.form_submit_button("가족 확인하기", type="primary", use_container_width=True)
     if ok:
-        if hmac.compare_digest(pw.encode(), family_password.encode()):
+        if verify_password(pw, family_password):
             st.session_state.family_auth = digest
             st.session_state.family_attempts = 0
             st.rerun()
@@ -116,10 +105,9 @@ def password_gate():
             if tries % 5 == 0:
                 st.session_state.family_lock = time.time() + 60
             st.error("비밀번호를 다시 확인해 주세요.")
-    st.caption("사진과 보상은 가족에게만 보여요. QR이나 비밀번호를 공개하지 마세요.")
+    st.caption("가족 비밀번호로 입장해 주세요. QR이나 비밀번호를 공개하지 마세요.")
     st.stop()
 
-password_gate()
 
 @st.cache_resource
 def database(url):
@@ -167,6 +155,75 @@ try:
 except Exception:
     st.error("저장소에 연결하지 못했어요. 부모님이 DATABASE_URL과 연결 권한을 확인해 주세요.")
     st.stop()
+
+
+# 최초 설정도 앱 안에서 처리합니다. Secrets 메뉴는 선택 사항입니다.
+auth_meta = MetaData()
+auth_table = Table("jy_auth_settings", auth_meta,
+    Column("id", Integer, primary_key=True),
+    Column("family_hash", String(300), nullable=False),
+    Column("parent_hash", String(300), nullable=False))
+auth_meta.create_all(engine)
+
+
+def encode_password(value):
+    salt = os.urandom(16).hex()
+    digest = hashlib.pbkdf2_hmac("sha256", value.encode(), bytes.fromhex(salt), 300000).hex()
+    return salt + "$" + digest
+
+
+def verify_password(value, encoded):
+    try:
+        salt, expected = encoded.split("$", 1)
+        actual = hashlib.pbkdf2_hmac("sha256", value.encode(), bytes.fromhex(salt), 300000).hex()
+        return hmac.compare_digest(actual, expected)
+    except (ValueError, TypeError):
+        return False
+
+
+with engine.connect() as c:
+    auth = c.execute(select(auth_table).where(auth_table.c.id == 1)).mappings().first()
+if auth is None:
+    configured_family = config("FAMILY_PASSWORD")
+    configured_parent = config("PARENT_PIN")
+    if len(configured_family) >= 8 and len(configured_parent) >= 6 and configured_family != configured_parent:
+        try:
+            with engine.begin() as c:
+                c.execute(insert(auth_table).values(id=1, family_hash=encode_password(configured_family), parent_hash=encode_password(configured_parent)))
+        except IntegrityError:
+            pass
+        st.rerun()
+    st.title("🌱 준영이의 공부 기록장")
+    st.subheader("처음 한 번만, 여기서 비밀번호를 정해 주세요")
+    st.info("다른 설정 메뉴로 갈 필요 없어요. 부모님이 아래 칸에 직접 입력하면 됩니다.")
+    st.warning("최초 설정은 부모님이 해 주세요. 설정이 끝나기 전에는 앱 주소를 공유하지 마세요.")
+    with st.form("first_setup"):
+        first_family = st.text_input("가족 비밀번호 정하기 (8글자 이상)", type="password")
+        first_parent = st.text_input("부모님 전용 비밀번호 정하기 (6글자 이상)", type="password")
+        first_confirm = st.text_input("부모님 비밀번호 다시 입력", type="password")
+        submit = st.form_submit_button("저장하고 시작하기", type="primary", use_container_width=True)
+    if submit:
+        if len(first_family) < 8 or len(first_parent) < 6:
+            st.error("가족 비밀번호는 8글자 이상, 부모님 비밀번호는 6글자 이상으로 정해 주세요.")
+        elif first_family == first_parent:
+            st.error("가족용과 부모님용 비밀번호는 다르게 정해 주세요.")
+        elif first_parent != first_confirm:
+            st.error("부모님 비밀번호 두 칸이 서로 달라요.")
+        else:
+            family_hash = encode_password(first_family)
+            parent_hash = encode_password(first_parent)
+            try:
+                with engine.begin() as c:
+                    c.execute(insert(auth_table).values(id=1, family_hash=family_hash, parent_hash=parent_hash))
+                st.session_state.family_auth = hashlib.sha256(family_hash.encode()).hexdigest()
+                st.rerun()
+            except IntegrityError:
+                st.warning("다른 기기에서 이미 설정했어요. 새로고침해 주세요.")
+    st.caption("기본 임시 저장소는 재시작 시 기록과 비밀번호 설정이 사라질 수 있어요. 실제 사용에는 외부 PostgreSQL 연결을 권장해요.")
+    st.stop()
+family_password = auth["family_hash"]
+parent_pin = auth["parent_hash"]
+password_gate()
 
 
 def rows(stmt):
@@ -229,7 +286,7 @@ def parent_login():
         pin = st.text_input("부모님 전용 비밀번호", type="password")
         ok = st.form_submit_button("부모님 입장", type="primary")
     if ok:
-        if hmac.compare_digest(pin.encode(), parent_pin.encode()):
+        if verify_password(pin, parent_pin):
             st.session_state.parent_auth = digest
             st.session_state.parent_expires = time.time() + 1800
             st.session_state.pin_attempts = 0
