@@ -86,7 +86,7 @@ def password_gate():
     digest = hashlib.sha256(family_password.encode()).hexdigest()
     if st.session_state.get("family_auth") == digest:
         return
-    st.markdown('<div class="hero"><div class="eyebrow">OUR LITTLE STUDY GARDEN</div><h1>🌱 준영이의<br>공부 기록장</h1><p>오늘의 작은 공부가 모여<br>두근두근 선물이 되는 곳!</p></div>', unsafe_allow_html=True)
+    st.markdown('<div class="hero"><div class="eyebrow">OUR LITTLE STUDY GARDEN</div><h1>🌱 준영이의<br>공부·건강 기록장</h1><p>오늘의 작은 공부가 모여<br>두근두근 선물이 되는 곳!</p></div>', unsafe_allow_html=True)
     locked_until = st.session_state.get("family_lock", 0)
     if time.time() < locked_until:
         st.warning("잠깐 쉬었다가 1분 후 다시 입력해 주세요.")
@@ -452,10 +452,126 @@ def setup_campaign(camp):
                 st.rerun()
 
 
+# 건강 정보는 공부 기록과 분리하며 자동 진단/복약 추천을 하지 않습니다.
+health_meta = MetaData()
+health = Table("jy_health_reports", health_meta,
+    Column("id", Integer, primary_key=True),
+    Column("part", String(80), nullable=False),
+    Column("severity", String(40), nullable=False),
+    Column("note", String(500), nullable=False),
+    Column("created_at", String(40), nullable=False),
+    Column("seen", Integer, nullable=False, default=0))
+contacts = Table("jy_health_contacts", health_meta,
+    Column("id", Integer, primary_key=True),
+    Column("phone", String(30), nullable=False))
+health_meta.create_all(engine)
+
+
+def health_parent():
+    st.subheader("🩺 준영이 건강 확인함")
+    st.caption("알림은 앱 안에서만 보여요. 앱을 닫은 휴대폰에 문자·푸시가 자동 발송되지는 않습니다.")
+    current = rows(select(contacts).where(contacts.c.id == 1))
+    with st.form("health_phone"):
+        phone = st.text_input("준영이가 전화할 보호자 번호", value=current[0]["phone"] if current else "", placeholder="01012345678", max_chars=20)
+        save = st.form_submit_button("전화번호 저장")
+    if save:
+        cleaned = phone.replace("-", "").replace(" ", "")
+        if cleaned and (not cleaned.isdigit() or not 9 <= len(cleaned) <= 15):
+            st.error("전화번호를 숫자로 입력해 주세요.")
+        else:
+            with engine.begin() as c:
+                c.execute(delete(contacts).where(contacts.c.id == 1))
+                c.execute(insert(contacts).values(id=1, phone=cleaned))
+            st.success("저장했어요. 빈 번호로 저장하면 전화 버튼이 숨겨져요.")
+    reports = rows(select(health).order_by(health.c.id.desc()).limit(100))
+    if not reports:
+        st.info("아직 건강 기록이 없어요.")
+    for r in reports:
+        with st.container(border=True):
+            st.write(("✅ 확인함" if r["seen"] else "🔔 확인 필요") + " · " + r["created_at"])
+            st.write(f"{r['part']} · {r['severity']}")
+            st.write(r["note"] or "추가 설명 없음")
+            st.caption("확인 버튼은 보호자가 기록을 읽었다는 뜻이며 치료 완료를 뜻하지 않습니다.")
+            if not r["seen"] and st.button("읽었어요 · 준영이에게 연락할게요", key=f"health_seen_{r['id']}"):
+                with engine.begin() as c:
+                    c.execute(update(health).where(health.c.id == r["id"]).values(seen=1))
+                st.rerun()
+            if st.checkbox("이 건강 기록 삭제에 동의", key=f"hdc_{r['id']}"):
+                if st.button("건강 기록 삭제", key=f"hd_{r['id']}"):
+                    with engine.begin() as c:
+                        c.execute(delete(health).where(health.c.id == r["id"]))
+                    st.rerun()
+
+
+def health_child():
+    st.title("🩺 내 몸 살피기")
+    st.write("몸 모양의 버튼에서 아픈 곳을 콕 눌러줘!")
+    st.error("숨쉬기 힘들거나, 정신이 흐려지거나, 입술·혀가 부으면 기록하지 말고 바로 주변 어른에게 알리고 119에 도움을 요청해요.")
+    st.warning("혼자 약을 먹지 말고 부모님에게 먼저 알려줘. 여기는 진단이나 약 추천을 하는 곳이 아니야.")
+    contact = rows(select(contacts).where(contacts.c.id == 1))
+    if contact and contact[0]["phone"]:
+        number = contact[0]["phone"]
+        st.markdown(f"### [📞 부모님에게 전화하기](tel:{number})")
+        st.caption("휴대폰에서 누르면 전화 앱이 열려요. 통화 버튼은 직접 눌러야 해요.")
+    else:
+        st.info("부모님 관리실에서 전화번호를 등록하면 전화 버튼이 생겨요. 급하면 주변 어른에게 직접 알려줘!")
+    view = st.radio("몸의 어느 쪽이야?", ["앞면", "뒷면"], horizontal=True)
+    st.caption("화면 왼쪽·오른쪽은 그림에서 보이는 방향이에요. 버튼을 누르면 선택한 곳이 아래에 표시돼요.")
+    def part_button(col, label, key):
+        full = view + " · " + label
+        selected = st.session_state.get("health_part") == full
+        if col.button(("✓ " if selected else "") + label, key="body_" + key, type="primary" if selected else "secondary", use_container_width=True):
+            st.session_state.health_part = full
+            st.rerun()
+    # 네이티브 버튼을 몸 형태로 배열하여 작은 휴대폰에서도 직접 터치할 수 있습니다.
+    _, center, _ = st.columns([1, 1.4, 1])
+    part_button(center, "🙂 머리" if view == "앞면" else "🧑 뒤통수", "head")
+    _, center, _ = st.columns([1, 1.4, 1])
+    part_button(center, "목", "neck")
+    left, center, right = st.columns([1, 1.4, 1])
+    part_button(left, "왼쪽 팔", "arm_l")
+    part_button(center, "가슴" if view == "앞면" else "등", "chest")
+    part_button(right, "오른쪽 팔", "arm_r")
+    left, center, right = st.columns([1, 1.4, 1])
+    part_button(left, "왼쪽 손", "hand_l")
+    part_button(center, "배" if view == "앞면" else "허리", "belly")
+    part_button(right, "오른쪽 손", "hand_r")
+    _, center, _ = st.columns([1, 1.4, 1])
+    part_button(center, "골반·엉덩이", "hip")
+    _, l, r, _ = st.columns([.5, 1, 1, .5])
+    part_button(l, "왼쪽 다리", "leg_l")
+    part_button(r, "오른쪽 다리", "leg_r")
+    _, l, r, _ = st.columns([.5, 1, 1, .5])
+    part_button(l, "왼쪽 발", "foot_l")
+    part_button(r, "오른쪽 발", "foot_r")
+    if st.button("다른 곳 / 어디인지 모르겠어", use_container_width=True):
+        st.session_state.health_part = "다른 곳 / 위치 불확실"
+        st.rerun()
+    selected = st.session_state.get("health_part", "")
+    if selected:
+        st.success("고른 곳: " + selected)
+    with st.form("health_submit", clear_on_submit=True):
+        severity = st.radio("얼마나 아파?", ["🙂 조금 아파", "😟 많이 아파", "😭 너무 아파"], horizontal=True)
+        note = st.text_input("언제부터 아팠어? 더 하고 싶은 말 (안 써도 돼)", max_chars=500)
+        sent = st.form_submit_button("📣 부모님 확인함에 남기기", type="primary", use_container_width=True)
+    if sent:
+        if not selected:
+            st.warning("먼저 아픈 곳을 눌러줘!")
+        else:
+            with engine.begin() as c:
+                c.execute(insert(health).values(part=selected, severity=severity, note=note.strip(), created_at=now(), seen=0))
+            st.success("부모님 확인함에 저장했어! 자동 문자 알림은 아니니 전화하거나 직접 말해줘.")
+            if severity != "🙂 조금 아파":
+                st.warning("많이 아프면 기다리지 말고 지금 바로 어른에게 도움을 요청해줘.")
+    st.caption("건강 기록은 가족의 민감한 정보예요. 실제 사용 전 보호자와 상의하고 가족 밖에 공유하지 마세요.")
+
+
 def parent_page(camp):
     st.title("🔐 부모님 관리실")
     if not parent_login():
         return
+    health_parent()
+    st.divider()
     if not camp or camp["opened_at"]:
         setup_campaign(camp)
     if not camp:
@@ -531,10 +647,14 @@ def parent_page(camp):
 def notifications():
     # 알림함만 주기적으로 갱신: 입력 중인 다른 위젯은 방해하지 않음.
     camp = latest_campaign()
-    if not camp:
-        return
     parent_valid = (st.session_state.get("parent_auth") == hashlib.sha256(parent_pin.encode()).hexdigest()
                     and time.time() < st.session_state.get("parent_expires", 0))
+    if parent_valid:
+        outstanding = rows(select(health.c.id).where(health.c.seen == 0))
+        if outstanding:
+            st.error(f"🩺 건강 기록 {len(outstanding)}건: 부모님 관리실에서 확인하고 준영이에게 연락해 주세요.")
+    if not camp:
+        return
     if parent_valid:
         pending = rows(select(entries.c.id).where(entries.c.campaign_id == camp["id"], entries.c.status == "pending"))
         if pending:
@@ -547,7 +667,7 @@ def notifications():
     st.caption("앱 내 알림 · 20초마다 확인 · 휴대폰 푸시/SMS 알림은 아니에요.")
 
 if not st.session_state.get("entered"):
-    st.markdown('<div class="hero"><div class="eyebrow">JUNYOUNG’S STUDY JOURNAL</div><h1>🌱 준영이의<br>공부 기록장</h1><p>공부하고, 사진 찍고, 도장 모으고!<br>매일의 작은 도전 끝에 특별한 보물상자가 기다려요.</p></div>', unsafe_allow_html=True)
+    st.markdown('<div class="hero"><div class="eyebrow">JUNYOUNG’S STUDY JOURNAL</div><h1>🌱 준영이의<br>공부·건강 기록장</h1><p>공부하고, 사진 찍고, 도장 모으고!<br>매일의 작은 도전 끝에 특별한 보물상자가 기다려요.<br>아픈 곳은 내 몸 살피기에서 알려줘요.</p></div>', unsafe_allow_html=True)
     st.markdown("**① 오늘 미션 확인 → ② 사진 인증 → ③ 부모님 성공 도장 → ④ 선물상자 열기**")
     st.caption("도장은 하루 한 개. 쉬어 가는 날이 있어도 괜찮아!")
     if st.button("🚪 입장하기", type="primary", use_container_width=True):
@@ -557,7 +677,7 @@ if not st.session_state.get("entered"):
 
 with st.sidebar:
     st.title("🌱 공부 기록장")
-    page = st.radio("어디로 갈까요?", ["준영이의 달력", "부모님 관리실", "QR로 함께 쓰기"])
+    page = st.radio("어디로 갈까요?", ["준영이의 달력", "🩺 내 몸 살피기", "부모님 관리실", "QR로 함께 쓰기"])
     if url.startswith("sqlite"):
         st.warning("현재 임시 저장 모드예요. 재배포·재시작 시 기록이 사라질 수 있어요. 실제 사용 전 PostgreSQL을 연결해 주세요.")
     else:
@@ -578,6 +698,8 @@ if page == "준영이의 달력":
         st.success(f"새 도전은 {camp['start_day']}부터 시작해요. 오늘은 푹 쉬어도 괜찮아!")
     else:
         child_page(camp)
+elif page == "🩺 내 몸 살피기":
+    health_child()
 elif page == "부모님 관리실":
     parent_page(camp)
 else:
