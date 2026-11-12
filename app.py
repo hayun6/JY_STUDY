@@ -110,6 +110,16 @@ h1{font-size:1.8rem!important}h2{font-size:1.5rem!important}h3{font-size:1.25rem
 }
 </style>""", unsafe_allow_html=True)
 
+# 작은 화면에서 여백을 줄이되 접근성/작은 기기의 스크롤은 막지 않습니다.
+st.markdown("""<style>
+[data-testid="stMainBlockContainer"]{padding-top:.5rem!important;padding-bottom:90px!important}
+[data-testid="stVerticalBlock"]{gap:.65rem}
+h1,h2,h3{padding-top:.25rem!important;padding-bottom:.25rem!important;margin-bottom:.3rem!important}
+.st-key-child_entry button,.st-key-parent_entry button{min-height:82px!important;margin-bottom:4px!important}
+.hero{padding:16px!important;margin-bottom:10px!important}
+[data-testid="stProgress"]{margin-bottom:0}
+</style>""", unsafe_allow_html=True)
+
 def password_gate():
     # 로그인 후에도 설정 변경 시 이전 인증은 무효화됩니다.
     digest = hashlib.sha256(family_password.encode()).hexdigest()
@@ -254,11 +264,15 @@ family_password = auth["family_hash"]
 parent_pin = auth["parent_hash"]
 role = st.session_state.get("role")
 if not role:
-    st.title("🌱 준영이의 기록장")
-    if st.button("🧒 준영이", use_container_width=True, type="primary"):
+    st.markdown('<div style="text-align:center;padding:12px 0 16px"><div style="font-size:46px">🌱</div><div style="font-size:clamp(32px,8.5vw,42px);font-weight:850;line-height:1.3;color:#263c36">준영이의 기록장</div></div>', unsafe_allow_html=True)
+    st.markdown("""<style>
+.st-key-child_entry button,.st-key-parent_entry button{min-height:82px!important;font-size:24px!important;border-radius:24px!important;margin-bottom:14px!important}
+.st-key-child_entry button p,.st-key-parent_entry button p{font-size:24px!important;font-weight:750!important}
+</style>""", unsafe_allow_html=True)
+    if st.button("🧒 준영이로 들어가기", key="child_entry", use_container_width=True, type="primary"):
         st.session_state.role = "child"
         st.rerun()
-    if st.button("🔒 보호자", use_container_width=True):
+    if st.button("🔒 보호자로 들어가기", key="parent_entry", use_container_width=True):
         st.session_state.role = "parent"
         st.rerun()
     st.stop()
@@ -390,7 +404,7 @@ def child_page(camp):
     st.title("🌱 준영이의 공부 기록장")
     st.caption("조금씩, 꾸준히! 오늘의 노력을 도장으로 남겨요.")
     records = get_entries(camp["id"]) if camp else []
-    render_calendar(camp, records)
+    None  # 달력은 별도 화면에서 표시
     if not camp:
         st.info("부모님이 첫 공부 미션과 선물을 준비하고 있어요. 부모님 모드에서 시작해 주세요!")
         return
@@ -594,7 +608,7 @@ def health_child():
         chosen = st.session_state.get("health_part", "")
         st.info("📍 " + (chosen or "몸을 눌러줘"))
         body = Image.open(io.BytesIO(base64.b64decode(BODY_IMAGE))).convert("RGB")
-        body.thumbnail((280, 420))
+        body.thumbnail((200, 300))
         if st.session_state.get("hp"):
             from PIL import ImageDraw
             xx, yy = st.session_state.hp
@@ -820,7 +834,14 @@ if page == "홈":
         if st.button("역할 바꾸기 / 로그아웃"):
             st.session_state.clear(); st.rerun()
         if url.startswith("sqlite"): st.warning("임시 저장 모드: 영구 보관에는 외부 DB 연결이 필요해요.")
-elif page == "공부": child_page(camp)
+elif page == "공부":
+    st.subheader("📅 공부")
+    study_view = st.segmented_control("화면", ["사진 인증", "달력"], default="사진 인증", label_visibility="collapsed")
+    if study_view == "달력":
+        if camp: render_calendar(camp, get_entries(camp["id"]))
+        else: st.info("첫 도전을 기다려줘!")
+    else:
+        child_page(camp)
 elif page == "건강": health_child()
 else:
     st.title("🎁 나의 보물상자")
