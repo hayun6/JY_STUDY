@@ -91,6 +91,25 @@ button{min-height:48px;border-radius:16px!important}
 .st-key-mobile_nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:min(100%,560px);background:#fffdf7;padding:10px 14px;z-index:999;border-top:1px solid #dce5d5}
 </style>""", unsafe_allow_html=True)
 
+# 휴대폰 우선: 최소 56px 터치 영역, 16px 입력 글자, 좁은 화면 대응
+st.markdown("""<style>
+[data-testid="stMainBlockContainer"]{max-width:480px!important;padding:1rem 16px 106px!important}
+.stApp button{min-height:56px!important;font-size:17px!important;font-weight:600!important;border-radius:18px!important;touch-action:manipulation}
+[data-testid="stTextInput"] input,[data-testid="stNumberInput"] input{min-height:54px!important;font-size:18px!important}
+[data-testid="stTextArea"] textarea{font-size:18px!important;min-height:110px}
+[data-testid="stRadio"] label{min-height:48px;align-items:center;font-size:17px}
+h1{font-size:1.8rem!important}h2{font-size:1.5rem!important}h3{font-size:1.25rem!important}
+.st-key-mobile_nav{width:min(100%,480px)!important;padding:8px 8px calc(8px + env(safe-area-inset-bottom))!important;box-sizing:border-box}
+.st-key-mobile_nav [data-testid="stHorizontalBlock"]{flex-wrap:nowrap!important;gap:5px!important}
+.st-key-mobile_nav [data-testid="stColumn"]{min-width:0!important;flex:1 1 0!important;width:0!important}
+.st-key-mobile_nav button{font-size:14px!important;padding:6px 2px!important;min-height:60px!important;border-radius:14px!important}
+@media(max-width:480px){
+.hero{padding:22px 16px!important}.hero h1{font-size:1.8rem!important}
+[data-testid="stHorizontalBlock"]{gap:10px}
+.calendar{gap:3px!important}.day{min-height:58px!important;padding:5px 1px!important}.day .label{font-size:10px!important}
+}
+</style>""", unsafe_allow_html=True)
+
 def password_gate():
     # 로그인 후에도 설정 변경 시 이전 인증은 무효화됩니다.
     digest = hashlib.sha256(family_password.encode()).hexdigest()
@@ -235,8 +254,7 @@ family_password = auth["family_hash"]
 parent_pin = auth["parent_hash"]
 role = st.session_state.get("role")
 if not role:
-    st.title("🌱 준영이의 하루")
-    st.write("공부는 차곡차곡 · 건강은 꼼꼼하게")
+    st.title("🌱 준영이의 기록장")
     if st.button("🧒 준영이", use_container_width=True, type="primary"):
         st.session_state.role = "child"
         st.rerun()
@@ -754,7 +772,8 @@ def notifications():
 
 if not st.session_state.get("entered"):
     st.markdown('<div class="hero"><h1>🌱 준영이의 기록장</h1></div>', unsafe_allow_html=True)
-    if st.button("🚪 입장하기", type="primary", use_container_width=True):
+    entry_label = "준영이의 기록 확인하러 가기" if st.session_state.get("role") == "parent" else "기록하러 가기"
+    if st.button(entry_label, type="primary", use_container_width=True):
         st.session_state.entered = True
         st.rerun()
     st.stop()
@@ -768,7 +787,7 @@ if role == "parent":
     st.stop()
 
 if not st.session_state.get("tutorial_done"):
-    slides = [("🌱 준영이의 하루", "공부하고, 몸 상태도 살펴요"), ("📸 공부 → 도장", "사진을 보내고 보호자가 확인하면 도장이 쌓여요"), ("🩺 몸 → 건강 기록", "몸을 누르고 기록해요. 아프면 어른에게도 직접 알려요")]
+    slides = [("🌱 준영이의 기록장", "공부하고, 몸 상태도 살펴요"), ("📸 공부 → 도장", "사진을 보내고 보호자가 확인하면 도장이 쌓여요"), ("🩺 몸 → 건강 기록", "몸을 누르고 기록해요. 아프면 어른에게도 직접 알려요")]
     n = st.session_state.get("tutorial_step", 0)
     st.title(slides[n][0]); st.write(slides[n][1])
     if st.button("시작하기" if n == 2 else "다음 →", use_container_width=True, type="primary"):
@@ -786,7 +805,7 @@ with st.container(key="mobile_nav"):
             st.session_state.mobile_page = label.split(" ")[1]; st.rerun()
 camp = latest_campaign()
 if page == "홈":
-    st.title("🌱 준영이의 하루")
+    st.title("🌱 준영이의 기록장")
     st.subheader("오늘도 한 걸음!")
     if camp:
         st.info("📚 " + camp["mission"])
