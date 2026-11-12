@@ -115,9 +115,34 @@ st.markdown("""<style>
 [data-testid="stMainBlockContainer"]{padding-top:.5rem!important;padding-bottom:90px!important}
 [data-testid="stVerticalBlock"]{gap:.65rem}
 h1,h2,h3{padding-top:.25rem!important;padding-bottom:.25rem!important;margin-bottom:.3rem!important}
-.st-key-child_entry button,.st-key-parent_entry button{min-height:82px!important;margin-bottom:4px!important}
+.st-key-child_entry button,.st-key-parent_entry button{min-height:112px!important;margin-bottom:4px!important}
 .hero{padding:16px!important;margin-bottom:10px!important}
 [data-testid="stProgress"]{margin-bottom:0}
+</style>""", unsafe_allow_html=True)
+
+# 버튼은 세로로 더 키우지 않고 사용 가능한 가로 폭을 채웁니다.
+st.markdown("""<style>
+[data-testid="stButton"],[data-testid="stFormSubmitButton"],[data-testid="stLinkButton"]{width:100%!important}
+[data-testid="stButton"] button,[data-testid="stFormSubmitButton"] button,[data-testid="stLinkButton"] a{width:100%!important;box-sizing:border-box}
+[data-testid="stMainBlockContainer"]{padding-left:10px!important;padding-right:10px!important}
+.st-key-child_entry button,.st-key-parent_entry button{width:100%!important;min-height:112px!important;margin-bottom:4px!important}
+</style>""", unsafe_allow_html=True)
+
+# 세로 터치 영역 확대: 가로 배치는 유지합니다.
+st.markdown("""<style>
+[data-testid="stButton"] button,[data-testid="stFormSubmitButton"] button,[data-testid="stLinkButton"] a{min-height:76px!important;padding-top:16px!important;padding-bottom:16px!important}
+.st-key-child_entry button,.st-key-parent_entry button{min-height:112px!important;padding-top:24px!important;padding-bottom:24px!important}
+.st-key-mobile_nav button{min-height:64px!important;padding:8px 2px!important}
+</style>""", unsafe_allow_html=True)
+
+# 선택 컨트롤도 세로 여유를 확보합니다. 하단 메뉴 크기는 유지합니다.
+st.markdown("""<style>
+[data-testid="stButton"] button,[data-testid="stFormSubmitButton"] button{min-height:84px!important}
+[data-testid="stRadio"] label{min-height:60px!important;padding:10px 12px!important;box-sizing:border-box}
+[data-testid="stSegmentedControl"] button{min-height:60px!important;padding:12px 14px!important;font-size:17px!important}
+[data-testid="stSelectbox"] [role="combobox"]{min-height:58px!important}
+.st-key-child_entry button,.st-key-parent_entry button{min-height:112px!important}
+.st-key-mobile_nav button{min-height:64px!important;padding:8px 2px!important}
 </style>""", unsafe_allow_html=True)
 
 def password_gate():
@@ -266,7 +291,7 @@ role = st.session_state.get("role")
 if not role:
     st.markdown('<div style="text-align:center;padding:12px 0 16px"><div style="font-size:46px">🌱</div><div style="font-size:clamp(32px,8.5vw,42px);font-weight:850;line-height:1.3;color:#263c36">준영이의 기록장</div></div>', unsafe_allow_html=True)
     st.markdown("""<style>
-.st-key-child_entry button,.st-key-parent_entry button{min-height:82px!important;font-size:24px!important;border-radius:24px!important;margin-bottom:14px!important}
+.st-key-child_entry button,.st-key-parent_entry button{min-height:64px!important;font-size:24px!important;border-radius:24px!important;margin-bottom:14px!important}
 .st-key-child_entry button p,.st-key-parent_entry button p{font-size:24px!important;font-weight:750!important}
 </style>""", unsafe_allow_html=True)
     if st.button("🧒 준영이로 들어가기", key="child_entry", use_container_width=True, type="primary"):
