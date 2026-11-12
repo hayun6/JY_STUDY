@@ -145,6 +145,13 @@ st.markdown("""<style>
 .st-key-mobile_nav button{min-height:64px!important;padding:8px 2px!important}
 </style>""", unsafe_allow_html=True)
 
+# 버튼 안쪽 문단에도 글자 크기를 적용합니다.
+st.markdown("""<style>
+[data-testid="stButton"] button p,[data-testid="stFormSubmitButton"] button p,[data-testid="stLinkButton"] a p{font-size:24px!important;font-weight:750!important;line-height:1.35!important}
+[data-testid="stSegmentedControl"] button p{font-size:20px!important;font-weight:700!important}
+.st-key-mobile_nav button p{font-size:16px!important;line-height:1.2!important}
+</style>""", unsafe_allow_html=True)
+
 def password_gate():
     # 로그인 후에도 설정 변경 시 이전 인증은 무효화됩니다.
     digest = hashlib.sha256(family_password.encode()).hexdigest()
@@ -825,17 +832,6 @@ if role == "parent":
     parent_page(latest_campaign())
     st.stop()
 
-if not st.session_state.get("tutorial_done"):
-    slides = [("🌱 준영이의 기록장", "공부하고, 몸 상태도 살펴요"), ("📸 공부 → 도장", "사진을 보내고 보호자가 확인하면 도장이 쌓여요"), ("🩺 몸 → 건강 기록", "몸을 누르고 기록해요. 아프면 어른에게도 직접 알려요")]
-    n = st.session_state.get("tutorial_step", 0)
-    st.title(slides[n][0]); st.write(slides[n][1])
-    if st.button("시작하기" if n == 2 else "다음 →", use_container_width=True, type="primary"):
-        if n == 2: st.session_state.tutorial_done = True
-        else: st.session_state.tutorial_step = n + 1
-        st.rerun()
-    if st.button("건너뛰기"):
-        st.session_state.tutorial_done = True; st.rerun()
-    st.stop()
 page = st.session_state.get("mobile_page", "홈")
 with st.container(key="mobile_nav"):
     cols = st.columns(4)
@@ -845,26 +841,28 @@ with st.container(key="mobile_nav"):
 camp = latest_campaign()
 if page == "홈":
     st.title("🌱 준영이의 기록장")
-    st.subheader("오늘도 한 걸음!")
-    if camp:
-        st.info("📚 " + camp["mission"])
-        st.metric("모은 도장", str(successes(camp["id"])) + " / " + str(camp["goal"]))
-    else: st.info("보호자가 첫 도전을 준비 중이에요")
-    for label, dest in [("📸 공부 인증하기", "공부"), ("🩺 내 몸 살피기", "건강")]:
-        if st.button(label, use_container_width=True, type="primary"):
-            st.session_state.mobile_page = dest; st.rerun()
+    st.markdown("""<style>
+.st-key-study_start button,.st-key-health_start button{width:100%!important;min-height:112px!important;margin:8px 0!important;border-radius:24px!important}
+.st-key-study_start button p,.st-key-health_start button p{font-size:28px!important;font-weight:800!important}
+</style>""", unsafe_allow_html=True)
+    if st.button("📚 공부 기록하기", key="study_start", use_container_width=True, type="primary"):
+        st.session_state.mobile_page = "공부"
+        st.rerun()
+    if st.button("🩺 몸 상태 기록하기", key="health_start", use_container_width=True):
+        st.session_state.mobile_page = "건강"
+        st.rerun()
     with st.expander("설정"):
-        if st.button("사용 안내 다시 보기"):
-            st.session_state.tutorial_done = False; st.session_state.tutorial_step = 0; st.rerun()
         if st.button("역할 바꾸기 / 로그아웃"):
-            st.session_state.clear(); st.rerun()
-        if url.startswith("sqlite"): st.warning("임시 저장 모드: 영구 보관에는 외부 DB 연결이 필요해요.")
+            st.session_state.clear()
+            st.rerun()
+        if url.startswith("sqlite"):
+            st.warning("임시 저장 모드: 영구 보관에는 외부 DB 연결이 필요해요.")
 elif page == "공부":
     st.subheader("📅 공부")
-    study_view = st.segmented_control("화면", ["사진 인증", "달력"], default="사진 인증", label_visibility="collapsed")
+    study_view = st.segmented_control("화면", ["사진 인증", "달력"], default="달력", label_visibility="collapsed")
     if study_view == "달력":
-        if camp: render_calendar(camp, get_entries(camp["id"]))
-        else: st.info("첫 도전을 기다려줘!")
+        render_calendar(camp, get_entries(camp["id"]) if camp else [])
+        if not camp: st.caption("보호자가 도전을 등록하면 공부 인증을 시작할 수 있어요.")
     else:
         child_page(camp)
 elif page == "건강": health_child()
