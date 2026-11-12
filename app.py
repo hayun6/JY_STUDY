@@ -83,6 +83,14 @@ h1,h2,h3 {color:#244b3e;letter-spacing:-.04em;}
 
 
 
+st.markdown("""<style>
+[data-testid="stMainBlockContainer"]{max-width:560px;padding-top:1.4rem;padding-bottom:6rem}
+[data-testid="stSidebar"], [data-testid="stSidebarCollapsedControl"]{display:none}
+button{min-height:48px;border-radius:16px!important}
+[data-testid="stTextInput"] input{font-size:16px}
+.st-key-mobile_nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:min(100%,560px);background:#fffdf7;padding:10px 14px;z-index:999;border-top:1px solid #dce5d5}
+</style>""", unsafe_allow_html=True)
+
 def password_gate():
     # 로그인 후에도 설정 변경 시 이전 인증은 무효화됩니다.
     digest = hashlib.sha256(family_password.encode()).hexdigest()
@@ -225,7 +233,21 @@ if auth is None:
     st.stop()
 family_password = auth["family_hash"]
 parent_pin = auth["parent_hash"]
-password_gate()
+role = st.session_state.get("role")
+if not role:
+    st.title("🌱 준영이의 하루")
+    st.write("공부는 차곡차곡 · 건강은 꼼꼼하게")
+    if st.button("🧒 준영이", use_container_width=True, type="primary"):
+        st.session_state.role = "child"
+        st.rerun()
+    if st.button("🔒 보호자", use_container_width=True):
+        st.session_state.role = "parent"
+        st.rerun()
+    st.stop()
+if role == "child":
+    password_gate()
+else:
+    parent_login_placeholder = True
 
 
 def rows(stmt):
@@ -357,7 +379,7 @@ def child_page(camp):
     st.markdown("### 🎁 나의 보물상자")
     st.progress(min(count / camp["goal"], 1.0), text=f"성공 도장 {count} / {camp['goal']}개")
     if camp["opened_at"]:
-        st.markdown(f'<div class="box"><div class="emoji">🎊</div><h3>준영아, 해냈어!</h3><p>이번 선물은 <strong>{safe(camp["reward"])}</strong></p><p>부모님께 선물을 부탁해 봐!</p></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="box"><div class="emoji">🎊</div><h3>준영아, 해냈어!</h3><p>이번 선물은 <strong>{safe(camp["reward"])}</strong></p><p>차곡차곡 노력한 준영이, 정말 멋져! 앞으로도 응원할게 💚</p></div>', unsafe_allow_html=True)
     elif count >= camp["goal"]:
         st.markdown('<div class="box"><div class="emoji">🎁</div><h3>마지막 도장을 모았어!</h3><p>이제 보물상자를 열 수 있어.</p></div>', unsafe_allow_html=True)
         if st.button("✨ 보물상자 열기", type="primary", use_container_width=True):
@@ -425,12 +447,44 @@ def child_page(camp):
 
 def setup_campaign(camp):
     st.subheader("🎁 " + ("다음 도전 만들기" if camp else "첫 도전 만들기"))
-    st.caption("하루에 도장 하나! 목표는 ‘연속 일수’가 아니라 부모님이 승인한 총 성공 일수예요.")
-    with st.form("new_campaign"):
-        mission = st.text_input("기본 공부 미션", value="수학 문제집 2쪽 풀기", max_chars=300)
-        goal = st.number_input("상자를 열 성공 일수", min_value=1, max_value=100, value=7, step=1)
-        reward = st.text_input("상자 속 선물", placeholder="예: 말랑이 1개 / 5,000원 기프티콘", max_chars=200)
-        ok = st.form_submit_button("새 도전 시작하기", type="primary", use_container_width=True)
+    stage = st.session_state.get("challenge_stage", 0)
+    st.progress(stage / 3)
+    if stage == 0:
+        st.subheader("1 · 무엇을 공부할까?")
+        st.text_input("공부 미션", value="수학 문제집 2쪽", key="draft_mission", max_chars=300)
+    elif stage == 1:
+        st.subheader("2 · 도장 몇 개를 모을까?")
+        st.number_input("성공 일수", min_value=1, max_value=100, value=7, key="draft_goal")
+    elif stage == 2:
+        st.subheader("3 · 어떤 보상을 줄까?")
+        st.text_input("보상", key="draft_reward", placeholder="말랑이 1개", max_chars=200)
+    else:
+        st.subheader("도전 미리보기")
+        st.info(f"📚 {st.session_state.get('saved_mission', '')}\n\n⭐ {st.session_state.get('saved_goal', 7)}개 → 🎁 {st.session_state.get('saved_reward', '')}")
+    ok = False
+    if stage < 3:
+        if st.button("다음 →", key="challenge_next", type="primary", use_container_width=True):
+            if stage == 0:
+                st.session_state.saved_mission = st.session_state.draft_mission.strip()
+                valid = bool(st.session_state.saved_mission)
+            elif stage == 1:
+                st.session_state.saved_goal = st.session_state.draft_goal
+                valid = True
+            else:
+                st.session_state.saved_reward = st.session_state.draft_reward.strip()
+                valid = bool(st.session_state.saved_reward)
+            if valid:
+                st.session_state.challenge_stage = stage + 1
+                st.rerun()
+            else: st.error("내용을 입력해 주세요")
+    else:
+        ok = st.button("이 도전 시작하기", type="primary", use_container_width=True)
+    if stage > 0 and st.button("← 이전", key="challenge_back"):
+        st.session_state.challenge_stage = stage - 1
+        st.rerun()
+    mission = st.session_state.get("saved_mission", "")
+    goal = st.session_state.get("saved_goal", 7)
+    reward = st.session_state.get("saved_reward", "")
     if ok:
         if not mission.strip() or not reward.strip():
             st.error("공부 미션과 선물을 모두 입력해 주세요.")
@@ -451,6 +505,7 @@ def setup_campaign(camp):
                     c.execute(insert(campaigns).values(start_day=start.isoformat(), goal=int(goal), reward=reward.strip(), mission=mission.strip(), created_at=now()))
                     created = True
             if created:
+                st.session_state.challenge_stage = 0
                 st.rerun()
 
 
@@ -512,61 +567,88 @@ BODY_IMAGE = 'iVBORw0KGgoAAAANSUhEUgAAA1AAAATwCAYAAAD6oKFRAAEAAElEQVR4nKz9edRt2X
 
 def health_child():
     st.title("🩺 내 몸 살피기")
-    st.write("몸 그림에서 아픈 곳을 콕 눌러줘!")
-    st.error("숨쉬기 힘들거나, 정신이 흐려지거나, 입술·혀가 부으면 기록하지 말고 바로 주변 어른에게 알리고 119에 도움을 요청해요.")
-    st.warning("혼자 약을 먹지 말고 부모님에게 먼저 알려줘. 여기는 진단이나 약 추천을 하는 곳이 아니야.")
-    contact = rows(select(contacts).where(contacts.c.id.in_([1, 2, 3])).order_by(contacts.c.id))
-    if contact:
-        for person in contact:
-            number = person["phone"]
-            st.markdown(f"### [📞 보호자 {person['id']}에게 전화하기](tel:{number})")
-        st.caption("휴대폰에서 누르면 전화 앱이 열려요. 통화 버튼은 직접 눌러야 해요. 연결이 안 되면 다른 보호자에게 전화해줘.")
-    else:
-        st.info("부모님 관리실에서 보호자 전화번호를 등록하면 전화 버튼이 생겨요. 급하면 주변 어른에게 직접 알려줘!")
-    st.caption("그림에서 아픈 곳을 직접 눌러줘. 왼쪽·오른쪽은 화면에서 보이는 방향이야.")
-    body = Image.open(io.BytesIO(base64.b64decode(BODY_IMAGE))).convert("RGB")
-    body.thumbnail((340, 510))
-    # 좌표를 원본 대비 비율로 판정하고, 빈 배경 터치는 무시합니다.
-    point = streamlit_image_coordinates(body, key="body_picture_touch")
-    if point:
-        x, y = point["x"] / body.width, point["y"] / body.height
-        side = "화면 왼쪽" if x < .5 else "화면 오른쪽"
-        region = None
-        if .32 <= x <= .68 and .02 <= y < .255:
-            region = "머리"
-        elif .43 <= x <= .57 and .255 <= y < .29:
-            region = "목"
-        elif .35 <= x <= .65 and .29 <= y < .405:
-            region = "가슴"
-        elif .35 <= x <= .65 and .405 <= y < .49:
-            region = "배"
-        elif .33 <= x <= .67 and .49 <= y < .62:
-            region = "골반"
-        elif .15 <= x <= .85 and .35 <= y < .55:
-            region = side + (" 손" if y >= .47 else " 팔")
-        elif .26 <= x <= .74 and .62 <= y <= .96:
-            region = side + (" 발" if y >= .86 else " 다리")
-        if region:
-            st.session_state.health_part = region
-    if st.button("다른 곳 / 어디인지 모르겠어", use_container_width=True):
-        st.session_state.health_part = "다른 곳 / 위치 불확실"
-    selected = st.session_state.get("health_part", "")
-    if selected:
-        st.success("고른 곳: " + selected)
-    with st.form("health_submit", clear_on_submit=True):
-        severity = st.radio("얼마나 아파?", ["🙂 조금 아파", "😟 많이 아파", "😭 너무 아파"], horizontal=True)
-        note = st.text_input("언제부터 아팠어?", max_chars=500)
-        sent = st.form_submit_button("📣 부모님 확인함에 남기기", type="primary", use_container_width=True)
-    if sent:
-        if not selected:
-            st.warning("먼저 아픈 곳을 눌러줘!")
-        else:
+    step = st.session_state.get("hs", 0)
+    st.progress(min(step, 3) / 3)
+    st.caption(f"{min(step + 1, 4)} / 4")
+    if step == 0:
+        st.subheader("어디가 아파?")
+        chosen = st.session_state.get("health_part", "")
+        st.info("📍 " + (chosen or "몸을 눌러줘"))
+        body = Image.open(io.BytesIO(base64.b64decode(BODY_IMAGE))).convert("RGB")
+        body.thumbnail((280, 420))
+        if st.session_state.get("hp"):
+            from PIL import ImageDraw
+            xx, yy = st.session_state.hp
+            draw = ImageDraw.Draw(body)
+            draw.ellipse((xx*body.width-13, yy*body.height-13, xx*body.width+13, yy*body.height+13), outline="#ed4058", width=5)
+        point = streamlit_image_coordinates(body, key="body_mobile")
+        if point:
+            xy = (point["x"] / body.width, point["y"] / body.height)
+            if xy != st.session_state.get("last_hp"):
+                st.session_state.last_hp = xy
+                x, y = xy
+                region = None
+                if .32 < x < .68 and y < .255:
+                    region = "얼굴·머리"
+                elif .43 < x < .57 and .255 <= y < .29: region = "목"
+                elif .35 < x < .65 and .29 <= y < .405: region = "가슴"
+                elif .35 < x < .65 and .405 <= y < .49: region = "배"
+                elif .33 < x < .67 and .49 <= y < .62: region = "골반"
+                elif .15 < x < .85 and .35 <= y < .55: region = "손" if y >= .47 else "팔"
+                elif .26 < x < .74 and .62 <= y < .96: region = "발" if y >= .86 else "다리"
+                if region:
+                    st.session_state.health_part = region
+                    st.session_state.hp = xy
+                    st.rerun()
+        if chosen in ["얼굴·머리", "눈", "귀", "코", "입", "머리"]:
+            st.caption("얼굴은 더 정확하게 골라줘")
+            cols = st.columns(3)
+            for i, part in enumerate(["눈", "귀", "코", "입", "머리"]):
+                if cols[i % 3].button(part, key="face_"+part, use_container_width=True):
+                    st.session_state.health_part = part
+                    st.rerun()
+        if st.button("다른 곳", use_container_width=True):
+            st.session_state.health_part = "다른 곳"
+            st.rerun()
+        if st.button("다음 →", disabled=not chosen, use_container_width=True, type="primary"):
+            st.session_state.hs = 1
+            st.rerun()
+    elif step == 1:
+        st.subheader("얼마나 아파?")
+        for level in ["🙂 조금 아파", "😟 많이 아파", "😭 너무 아파"]:
+            if st.button(level, use_container_width=True):
+                st.session_state.hseverity = level
+                st.session_state.hs = 2
+                st.rerun()
+    elif step == 2:
+        st.subheader("언제부터 아팠어?")
+        for timing in ["방금", "오늘부터", "어제부터", "며칠 전부터", "잘 모르겠어"]:
+            if st.button(timing, use_container_width=True):
+                st.session_state.hnote = timing
+                st.session_state.hs = 3
+                st.rerun()
+    elif step == 3:
+        st.subheader("이렇게 남길까?")
+        st.success(st.session_state.get("health_part", "") + " · " + st.session_state.get("hseverity", "") + " · " + st.session_state.get("hnote", ""))
+        if st.button("📮 기록 보내기", type="primary", use_container_width=True):
             with engine.begin() as c:
-                c.execute(insert(health).values(part=selected, severity=severity, note=note.strip(), created_at=now(), seen=0))
-            st.success("부모님 확인함에 저장했어! 자동 문자 알림은 아니니 전화하거나 직접 말해줘.")
-            if severity != "🙂 조금 아파":
-                st.warning("많이 아프면 기다리지 말고 지금 바로 어른에게 도움을 요청해줘.")
-    st.caption("건강 기록은 가족의 민감한 정보예요. 실제 사용 전 보호자와 상의하고 가족 밖에 공유하지 마세요.")
+                c.execute(insert(health).values(part=st.session_state.health_part, severity=st.session_state.hseverity, note=st.session_state.hnote, created_at=now(), seen=0))
+            st.session_state.hs = 4
+            st.rerun()
+    if step == 4:
+        st.success("저장했어! 보호자에게 직접 알려줘.")
+        if st.button("새 기록"):
+            for key in ["hs", "hp", "last_hp", "health_part"]: st.session_state.pop(key, None)
+            st.rerun()
+    if 0 < step < 4 and st.button("← 이전"):
+        st.session_state.hs = step - 1
+        st.rerun()
+    with st.expander("📞 도움이 필요해"):
+        st.warning("혼자 약을 먹지 마세요. 숨쉬기 어렵거나 의식이 이상하면 즉시 어른과 119에 도움을 요청하세요.")
+        for person in rows(select(contacts).order_by(contacts.c.id)):
+            st.link_button(f"보호자 {person['id']} 전화", "tel:" + person["phone"], use_container_width=True)
+        st.link_button("119 전화", "tel:119")
+        st.caption("자동 문자 발송은 없어요.")
 
 
 def parent_page(camp):
@@ -678,53 +760,61 @@ if not st.session_state.get("entered"):
         st.rerun()
     st.stop()
 
-with st.sidebar:
-    st.title("🌱 공부 기록장")
-    page = st.radio("어디로 갈까요?", ["준영이의 달력", "🩺 내 몸 살피기", "부모님 관리실", "QR로 함께 쓰기"])
-    if url.startswith("sqlite"):
-        st.warning("현재 임시 저장 모드예요. 재배포·재시작 시 기록이 사라질 수 있어요. 실제 사용 전 PostgreSQL을 연결해 주세요.")
-    else:
-        st.caption("외부 저장소 연결 모드 · 사진과 기록은 해당 DB에 보관해요.")
-    if st.button("🔄 화면 새로고침", use_container_width=True):
+role = st.session_state.get("role", "child")
+if role == "parent":
+    if st.button("← 역할 바꾸기"):
+        st.session_state.clear()
         st.rerun()
-    if st.button("🚪 가족 로그아웃", use_container_width=True):
-        for key in list(st.session_state):
-            del st.session_state[key]
-        st.rerun()
+    parent_page(latest_campaign())
+    st.stop()
 
+if not st.session_state.get("tutorial_done"):
+    slides = [("🌱 준영이의 하루", "공부하고, 몸 상태도 살펴요"), ("📸 공부 → 도장", "사진을 보내고 보호자가 확인하면 도장이 쌓여요"), ("🩺 몸 → 건강 기록", "몸을 누르고 기록해요. 아프면 어른에게도 직접 알려요")]
+    n = st.session_state.get("tutorial_step", 0)
+    st.title(slides[n][0]); st.write(slides[n][1])
+    if st.button("시작하기" if n == 2 else "다음 →", use_container_width=True, type="primary"):
+        if n == 2: st.session_state.tutorial_done = True
+        else: st.session_state.tutorial_step = n + 1
+        st.rerun()
+    if st.button("건너뛰기"):
+        st.session_state.tutorial_done = True; st.rerun()
+    st.stop()
+page = st.session_state.get("mobile_page", "홈")
+with st.container(key="mobile_nav"):
+    cols = st.columns(4)
+    for col, label in zip(cols, ["🏠 홈", "📅 공부", "🩺 건강", "🎁 보상"]):
+        if col.button(label, use_container_width=True):
+            st.session_state.mobile_page = label.split(" ")[1]; st.rerun()
 camp = latest_campaign()
-if page == "준영이의 달력":
-    # 다음 도전 시작일 전에는 인증 기능을 보이지 않음.
-    if camp and date.fromisoformat(camp["start_day"]) > today():
-        st.title("🌱 다음 도전도 기대해!")
-        render_calendar(camp, get_entries(camp["id"]))
-        st.success(f"새 도전은 {camp['start_day']}부터 시작해요. 오늘은 푹 쉬어도 괜찮아!")
-    else:
-        child_page(camp)
-elif page == "🩺 내 몸 살피기":
-    health_child()
-elif page == "부모님 관리실":
-    parent_page(camp)
+if page == "홈":
+    st.title("🌱 준영이의 하루")
+    st.subheader("오늘도 한 걸음!")
+    if camp:
+        st.info("📚 " + camp["mission"])
+        st.metric("모은 도장", str(successes(camp["id"])) + " / " + str(camp["goal"]))
+    else: st.info("보호자가 첫 도전을 준비 중이에요")
+    for label, dest in [("📸 공부 인증하기", "공부"), ("🩺 내 몸 살피기", "건강")]:
+        if st.button(label, use_container_width=True, type="primary"):
+            st.session_state.mobile_page = dest; st.rerun()
+    with st.expander("설정"):
+        if st.button("사용 안내 다시 보기"):
+            st.session_state.tutorial_done = False; st.session_state.tutorial_step = 0; st.rerun()
+        if st.button("역할 바꾸기 / 로그아웃"):
+            st.session_state.clear(); st.rerun()
+        if url.startswith("sqlite"): st.warning("임시 저장 모드: 영구 보관에는 외부 DB 연결이 필요해요.")
+elif page == "공부": child_page(camp)
+elif page == "건강": health_child()
 else:
-    st.title("📱 QR로 함께 쓰기")
-    st.write("휴대폰 카메라로 QR을 비추면 같은 기록장에 들어올 수 있어요. 별도 앱 설치는 필요 없어요.")
-    app_url = config("APP_URL")
-    if not app_url:
-        st.info("부모님이 앱 Secrets에 배포 완료된 HTTPS 주소를 APP_URL로 입력하면 QR이 생겨요.")
+    st.title("🎁 나의 보물상자")
+    if not camp: st.info("첫 도전을 기다려줘!")
     else:
-        parsed = urlparse(app_url)
-        if parsed.scheme != "https" or not parsed.netloc or parsed.username or parsed.password:
-            st.error("APP_URL에는 비밀번호가 없는 실제 HTTPS 앱 주소를 입력해 주세요.")
-        else:
-            image = qrcode.make(app_url)
-            buffer = io.BytesIO()
-            image.save(buffer, format="PNG")
-            st.image(buffer.getvalue(), width=260, caption="우리 가족 공부 기록장")
-            st.link_button("공부 기록장 주소 열기", app_url)
-            st.download_button("QR 이미지 내려받기", buffer.getvalue(), file_name="junyoung_qr.png", mime="image/png")
-    st.warning("QR에 비밀번호는 들어 있지 않아요. 가족 비밀번호는 따로 전달하고, 사진과 QR을 공개 게시하지 마세요.")
-    st.caption("휴대폰 홈 화면에 추가하면 앱처럼 편하게 접속할 수 있어요. 카메라 사용에는 HTTPS와 카메라 권한이 필요해요.")
-
-st.divider()
-notifications()
-st.caption("🌿 잘한 만큼 차곡차곡. 빠뜨린 날보다, 다시 시작한 날이 더 소중해요.")
+        total = successes(camp["id"])
+        st.metric("모은 도장", str(total) + " / " + str(camp["goal"]))
+        st.progress(min(total / camp["goal"], 1.0))
+        if camp["opened_at"]: st.success("🎉 " + camp["reward"] + " · 노력한 준영이를 응원해 💚")
+        elif total >= camp["goal"]:
+            if st.button("🎁 상자 열기", type="primary", use_container_width=True):
+                with engine.begin() as c:
+                    c.execute(campaigns.update().where(campaigns.c.id == camp["id"]).values(opened_at=now()))
+                st.balloons(); st.rerun()
+        else: st.write("🔒 도장을 모으면 상자가 열려요")
