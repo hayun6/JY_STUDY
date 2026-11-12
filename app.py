@@ -96,7 +96,7 @@ def password_gate():
     digest = hashlib.sha256(family_password.encode()).hexdigest()
     if st.session_state.get("family_auth") == digest:
         return
-    st.markdown('<div class="hero"><div class="eyebrow">OUR LITTLE STUDY GARDEN</div><h1>🌱 준영이의<br>공부·건강 기록장</h1><p>오늘의 작은 공부가 모여<br>두근두근 선물이 되는 곳!</p></div>', unsafe_allow_html=True)
+    st.markdown('<div class="hero"><div class="eyebrow">OUR LITTLE STUDY GARDEN</div><h1>🌱 준영이의<br>기록장</h1><p>오늘의 작은 공부가 모여<br>두근두근 선물이 되는 곳!</p></div>', unsafe_allow_html=True)
     locked_until = st.session_state.get("family_lock", 0)
     if time.time() < locked_until:
         st.warning("잠깐 쉬었다가 1분 후 다시 입력해 주세요.")
@@ -753,9 +753,7 @@ def notifications():
     st.caption("앱 내 알림 · 20초마다 확인 · 휴대폰 푸시/SMS 알림은 아니에요.")
 
 if not st.session_state.get("entered"):
-    st.markdown('<div class="hero"><div class="eyebrow">JUNYOUNG’S STUDY JOURNAL</div><h1>🌱 준영이의<br>공부·건강 기록장</h1><p>공부하고, 사진 찍고, 도장 모으고!<br>매일의 작은 도전 끝에 특별한 보물상자가 기다려요.<br>아픈 곳은 내 몸 살피기에서 알려줘요.</p></div>', unsafe_allow_html=True)
-    st.markdown("**① 오늘 미션 확인 → ② 사진 인증 → ③ 부모님 성공 도장 → ④ 선물상자 열기**")
-    st.caption("도장은 하루 한 개. 쉬어 가는 날이 있어도 괜찮아!")
+    st.markdown('<div class="hero"><h1>🌱 준영이의 기록장</h1></div>', unsafe_allow_html=True)
     if st.button("🚪 입장하기", type="primary", use_container_width=True):
         st.session_state.entered = True
         st.rerun()
