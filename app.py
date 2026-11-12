@@ -208,13 +208,13 @@ if auth is None:
     st.info("다른 설정 메뉴로 갈 필요 없어요. 부모님이 아래 칸에 직접 입력하면 됩니다.")
     st.warning("최초 설정은 부모님이 해 주세요. 설정이 끝나기 전에는 앱 주소를 공유하지 마세요.")
     with st.form("first_setup"):
-        first_family = st.text_input("가족 비밀번호 정하기 (4글자 이상 · 숫자도 가능)", type="password")
+        first_family = "unused-child-access-" + os.urandom(16).hex()
         first_parent = st.text_input("부모님 전용 비밀번호 정하기 (6글자 이상)", type="password")
         first_confirm = st.text_input("부모님 비밀번호 다시 입력", type="password")
         submit = st.form_submit_button("저장하고 시작하기", type="primary", use_container_width=True)
     if submit:
         if len(first_family) < 4 or len(first_parent) < 6:
-            st.error("가족 비밀번호는 4글자 이상, 부모님 비밀번호는 6글자 이상으로 정해 주세요.")
+            st.error("보호자 비밀번호는 6글자 이상으로 정해 주세요.")
         elif first_family == first_parent:
             st.error("가족용과 부모님용 비밀번호는 다르게 정해 주세요.")
         elif first_parent != first_confirm:
@@ -244,10 +244,11 @@ if not role:
         st.session_state.role = "parent"
         st.rerun()
     st.stop()
+# 준영이 입장은 별도 가족 비밀번호 없이 진행합니다.
+# 보호자 기능은 parent_page의 parent_login 인증으로 보호합니다.
+# 아동 화면에도 기록이 표시되므로 앱 주소를 공개하지 마세요.
 if role == "child":
-    password_gate()
-else:
-    parent_login_placeholder = True
+    st.session_state.family_auth = hashlib.sha256(family_password.encode()).hexdigest()
 
 
 def rows(stmt):
