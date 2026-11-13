@@ -660,7 +660,6 @@ def health_child():
     step = st.session_state.get("hs", 0)
     if step == 0:
         chosen = st.session_state.get("health_part", "")
-        st.markdown(f'<div class="health-part-heading">📍 {safe(chosen or "어디가 아파?")}</div>', unsafe_allow_html=True)
         original = Image.open(io.BytesIO(base64.b64decode(BODY_IMAGE))).convert("RGBA")
         # 원본 비율 유지: 그림을 늘리거나 가로로 왜곡하지 않습니다.
         face_mode = st.session_state.get("face_zoom", False)
@@ -722,6 +721,14 @@ def health_child():
                     st.session_state.health_part = region
                     if not face_mode: st.session_state.hp = xy
                     st.rerun()
+        # 사진 아래 꼬리가 사진을 향하는 말풍선으로 선택 결과 표시
+        speech = (chosen + " 쪽이 아파요!") if chosen else "아픈 곳을 콕 눌러 주세요!"
+        st.markdown("""<style>
+.jy-speech{position:relative;box-sizing:border-box;margin:16px auto 12px;padding:16px 14px;width:100%;max-width:360px;border:2px solid #8eb79a;border-radius:24px;background:#e7f0df;color:#263c36;text-align:center;font-size:28px;font-weight:800;line-height:1.35;overflow-wrap:anywhere}
+.jy-speech:before{content:"";position:absolute;top:-14px;left:50%;transform:translateX(-50%);border-left:13px solid transparent;border-right:13px solid transparent;border-bottom:14px solid #8eb79a}
+.jy-speech:after{content:"";position:absolute;top:-11px;left:50%;transform:translateX(-50%);border-left:11px solid transparent;border-right:11px solid transparent;border-bottom:12px solid #e7f0df}
+</style>""", unsafe_allow_html=True)
+        st.markdown('<div class="jy-speech">' + safe(speech) + '</div>', unsafe_allow_html=True)
         if face_mode and st.button("← 몸 전체", key="body_back", use_container_width=True):
             st.session_state.face_zoom = False
             st.session_state.last_hp = None
