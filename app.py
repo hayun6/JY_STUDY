@@ -152,6 +152,13 @@ st.markdown("""<style>
 .st-key-mobile_nav button p{font-size:16px!important;line-height:1.2!important}
 </style>""", unsafe_allow_html=True)
 
+# 휴대폰 브라우저 하단 도구막대 위로 내비게이션을 올립니다.
+st.markdown("""<style>
+.st-key-mobile_nav{bottom:calc(64px + env(safe-area-inset-bottom, 0px))!important;padding:8px!important;border-radius:20px!important;box-shadow:0 3px 18px #263c3620}
+[data-testid="stMainBlockContainer"]{padding-bottom:210px!important}
+.st-key-mobile_nav button{min-height:64px!important}
+</style>""", unsafe_allow_html=True)
+
 def password_gate():
     # 로그인 후에도 설정 변경 시 이전 인증은 무효화됩니다.
     digest = hashlib.sha256(family_password.encode()).hexdigest()
@@ -436,8 +443,26 @@ def child_page(camp):
     st.title("🌱 준영이의 공부 기록장")
     st.caption("조금씩, 꾸준히! 오늘의 노력을 도장으로 남겨요.")
     records = get_entries(camp["id"]) if camp else []
+    st.markdown("""<style>.st-key-go_camera button{min-height:112px!important}.st-key-go_camera button p{font-size:28px!important;font-weight:800!important}</style>""", unsafe_allow_html=True)
+    if st.button("📸 사진 찍으러 가기", key="go_camera", type="primary", use_container_width=True):
+        st.session_state.direct_camera = True
     if not camp:
-        st.info("부모님이 첫 공부 미션과 선물을 준비하고 있어요. 부모님 모드에서 시작해 주세요!")
+        if st.session_state.get("direct_camera"):
+            snap = st.camera_input("공부한 내용을 찰칵!", key="free_study_camera")
+            if snap and st.button("사진 저장하기", key="save_free_photo", type="primary", use_container_width=True):
+                try:
+                    draft_meta = MetaData()
+                    draft_photos = Table("jy_study_photo_drafts", draft_meta,
+                        Column("id", Integer, primary_key=True),
+                        Column("photo", LargeBinary, nullable=False),
+                        Column("created_at", String(40), nullable=False))
+                    draft_meta.create_all(engine)
+                    with engine.begin() as c:
+                        c.execute(insert(draft_photos).values(photo=compress_photo(snap), created_at=now()))
+                    st.success("사진을 저장했어! 미션 전 사진에는 도장이 쌓이지 않아.")
+                except Exception:
+                    st.error("사진을 저장하지 못했어. 다시 시도해 줘.")
+            st.caption("카메라가 안 열리면 브라우저의 카메라 권한을 허용해 주세요.")
         return
     count = sum(r["status"] == "approved" for r in records)
     st.markdown("### 🎁 나의 보물상자")
@@ -476,7 +501,7 @@ def child_page(camp):
     else:
         if entry:
             st.warning("🌱 조금만 더 해 볼까? " + entry["feedback"])
-        source = st.radio("사진 인증 방법", ["사진 고르기", "카메라로 찍기"], horizontal=True)
+        source = "카메라로 찍기" if st.session_state.get("direct_camera") else st.radio("사진 인증 방법", ["사진 고르기", "카메라로 찍기"], horizontal=True)
         st.caption("휴대폰에서는 사진 고르기로도 촬영할 수 있어요. 얼굴·이름·주소는 찍지 마세요.")
         upload = (st.file_uploader("공부한 사진 한 장", type=["jpg", "jpeg", "png"], key=f"upload_{camp['id']}_{day}")
                   if source == "사진 고르기" else st.camera_input("공부한 내용을 찰칵!", key=f"camera_{camp['id']}_{day}"))
