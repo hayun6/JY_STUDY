@@ -722,7 +722,13 @@ def health_child():
                     if not face_mode: st.session_state.hp = xy
                     st.rerun()
         # 사진 아래 꼬리가 사진을 향하는 말풍선으로 선택 결과 표시
-        speech = (chosen + " 쪽이 아파요!") if chosen else "아픈 곳을 콕 눌러 주세요!"
+        spoken_part = chosen.replace("입·턱", "입과 턱")
+        if spoken_part:
+            last = ord(spoken_part[-1]) - 0xAC00
+            particle = "이" if 0 <= last < 11172 and last % 28 else "가"
+            speech = spoken_part + particle + " 아파요!"
+        else:
+            speech = "아픈 곳을 콕 눌러 주세요!"
         st.markdown("""<style>
 .jy-speech{position:relative;box-sizing:border-box;margin:16px auto 12px;padding:16px 14px;width:100%;max-width:360px;border:2px solid #8eb79a;border-radius:24px;background:#e7f0df;color:#263c36;text-align:center;font-size:28px;font-weight:800;line-height:1.35;overflow-wrap:anywhere}
 .jy-speech:before{content:"";position:absolute;top:-14px;left:50%;transform:translateX(-50%);border-left:13px solid transparent;border-right:13px solid transparent;border-bottom:14px solid #8eb79a}
