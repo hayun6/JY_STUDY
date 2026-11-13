@@ -159,6 +159,13 @@ st.markdown("""<style>
 .st-key-mobile_nav button{min-height:64px!important}
 </style>""", unsafe_allow_html=True)
 
+# 기본 카메라 촬영 버튼의 영문을 한국어로 표시합니다.
+st.markdown("""<style>
+[data-testid="stCameraInput"] button{font-size:0!important;min-height:76px!important}
+[data-testid="stCameraInput"] button p,[data-testid="stCameraInput"] button span{font-size:0!important}
+[data-testid="stCameraInput"] button::after{content:"📸 사진 찍기";font-size:24px!important;font-weight:750;line-height:1.4}
+</style>""", unsafe_allow_html=True)
+
 def password_gate():
     # 로그인 후에도 설정 변경 시 이전 인증은 무효화됩니다.
     digest = hashlib.sha256(family_password.encode()).hexdigest()
@@ -430,13 +437,12 @@ def render_calendar(camp, records):
             elif dt > current:
                 state, label = "future", ""
             elif camp and dt >= date.fromisoformat(camp["start_day"]):
-                state, label = "missing", ("오늘의 도전" if dt == current else "기록 없음")
+                state, label = "missing", ""
             else:
                 state, label = "future", ""
             cls = " today" if dt == current else ""
             cells.append(f'<div class="day {state}{cls}"><span class="num">{d}</span><span class="label">{label}</span></div>')
     st.markdown('<div class="calendar">' + ''.join(cells) + '</div>', unsafe_allow_html=True)
-    st.markdown('<div class="legend">🟩 성공 · 🟨 부모님 확인 중 · 🟧 다시 도전 · ⬜ 지난날 기록 없음<br>색과 글자를 함께 표시해요. 하루 빠져도 모은 도장은 사라지지 않아요.</div>', unsafe_allow_html=True)
 
 
 def child_page(camp):
@@ -616,22 +622,6 @@ health_meta.create_all(engine)
 def health_parent():
     st.subheader("🩺 준영이 건강 확인함")
     st.caption("알림은 앱 안에서만 보여요. 앱을 닫은 휴대폰에 문자·푸시가 자동 발송되지는 않습니다.")
-    current = {r["id"]: r["phone"] for r in rows(select(contacts))}
-    with st.form("health_phone"):
-        phones = [st.text_input(f"보호자 {i} 전화번호", value=current.get(i, ""), placeholder="01012345678", max_chars=20, key=f"guardian_phone_{i}") for i in range(1, 4)]
-        st.caption("최대 3명까지 등록할 수 있어요. 사용하지 않는 칸은 비워두세요.")
-        save = st.form_submit_button("전화번호 저장")
-    if save:
-        cleaned = [phone.replace("-", "").replace(" ", "") for phone in phones]
-        if any(phone and (not phone.isascii() or not phone.isdigit() or not 9 <= len(phone) <= 15) for phone in cleaned):
-            st.error("전화번호를 9~15자리 숫자로 입력해 주세요. 비워두는 것도 가능해요.")
-        else:
-            with engine.begin() as c:
-                c.execute(delete(contacts).where(contacts.c.id.in_([1, 2, 3])))
-                for i, phone in enumerate(cleaned, 1):
-                    if phone:
-                        c.execute(insert(contacts).values(id=i, phone=phone))
-            st.success("저장했어요! 등록한 보호자마다 전화 버튼이 표시돼요.")
     reports = rows(select(health).order_by(health.c.id.desc()).limit(100))
     if not reports:
         st.info("아직 건강 기록이 없어요.")
@@ -663,38 +653,69 @@ def health_child():
         st.subheader("어디가 아파?")
         chosen = st.session_state.get("health_part", "")
         st.info("📍 " + (chosen or "몸을 눌러줘"))
-        body = Image.open(io.BytesIO(base64.b64decode(BODY_IMAGE))).convert("RGB")
-        body.thumbnail((200, 300))
-        if st.session_state.get("hp"):
-            from PIL import ImageDraw
-            xx, yy = st.session_state.hp
+        original = Image.open(io.BytesIO(base64.b64decode(BODY_IMAGE))).convert("RGB")
+        # 원본 비율 유지: 그림을 늘리거나 가로로 왜곡하지 않습니다.
+        face_mode = st.session_state.get("face_zoom", False)
+        if face_mode:
+            w, h = original.size
+            body = original.crop((int(w*.30), int(h*.015), int(w*.70), int(h*.255)))
+            body.thumbnail((300, 240))
+        else:
+            body = original.copy()
+            body.thumbnail((280, 340))
+        from PIL import ImageDraw
+        marker = st.session_state.get("face_marker" if face_mode else "hp")
+        if marker:
+            xx, yy = marker
             draw = ImageDraw.Draw(body)
-            draw.ellipse((xx*body.width-13, yy*body.height-13, xx*body.width+13, yy*body.height+13), outline="#ed4058", width=5)
-        point = streamlit_image_coordinates(body, key="body_mobile")
+            draw.ellipse((xx*body.width-10, yy*body.height-10, xx*body.width+10, yy*body.height+10), outline="#ed4058", width=4)
+        with st.container(key="body_touch_fit"):
+            point = streamlit_image_coordinates(body, key="face_detail_v2" if face_mode else "body_detail_v2")
+        st.markdown("""<style>.st-key-body_touch_fit{max-width:100%!important}.st-key-body_touch_fit iframe{max-width:100%!important}</style>""", unsafe_allow_html=True)
         if point:
             xy = (point["x"] / body.width, point["y"] / body.height)
-            if xy != st.session_state.get("last_hp"):
-                st.session_state.last_hp = xy
+            token = (face_mode, xy)
+            if token != st.session_state.get("last_hp"):
+                st.session_state.last_hp = token
                 x, y = xy
                 region = None
-                if .32 < x < .68 and y < .255:
-                    region = "얼굴·머리"
-                elif .43 < x < .57 and .255 <= y < .29: region = "목"
-                elif .35 < x < .65 and .29 <= y < .405: region = "가슴"
-                elif .35 < x < .65 and .405 <= y < .49: region = "배"
-                elif .33 < x < .67 and .49 <= y < .62: region = "골반"
-                elif .15 < x < .85 and .35 <= y < .55: region = "손" if y >= .47 else "팔"
-                elif .26 < x < .74 and .62 <= y < .96: region = "발" if y >= .86 else "다리"
+                if face_mode:
+                    if y < .38: region = "머리"
+                    elif x < .18 or x > .82: region = "귀"
+                    elif y < .64: region = "눈"
+                    elif y < .78: region = "코"
+                    else: region = "입·턱"
+                    st.session_state.face_marker = xy
+                elif .29 < x < .71 and y < .255:
+                    st.session_state.face_zoom = True
+                    st.session_state.health_part = ""
+                    st.rerun()
+                elif .40 < x < .60 and .255 <= y < .30: region = "목"
+                elif .34 < x < .66 and .30 <= y < .405: region = "가슴"
+                elif .34 < x < .66 and .405 <= y < .50: region = "배"
+                elif .33 < x < .67 and .50 <= y < .62: region = "골반"
+                elif .12 < x < .88 and .30 <= y < .57: region = "손" if y >= .47 else "팔"
+                elif .26 < x < .74 and .62 <= y < .96: region = "발" if y >= .86 else ("무릎" if .69 <= y < .78 else "다리")
                 if region:
                     st.session_state.health_part = region
-                    st.session_state.hp = xy
+                    if not face_mode: st.session_state.hp = xy
                     st.rerun()
-        if chosen in ["얼굴·머리", "눈", "귀", "코", "입", "머리"]:
-            st.caption("얼굴은 더 정확하게 골라줘")
-            cols = st.columns(3)
-            for i, part in enumerate(["눈", "귀", "코", "입", "머리"]):
-                if cols[i % 3].button(part, key="face_"+part, use_container_width=True):
+        if face_mode:
+            st.caption("맞는 부위를 골라줘")
+            columns = st.columns(2)
+            for index, part in enumerate(["눈", "귀", "코", "입·턱", "머리", "목"]):
+                if columns[index % 2].button(part, key="exact_face_"+part, use_container_width=True):
                     st.session_state.health_part = part
+                    st.rerun()
+            if st.button("← 몸 전체 보기", use_container_width=True):
+                st.session_state.face_zoom = False
+                st.session_state.last_hp = None
+                st.rerun()
+        else:
+            with st.expander("부위 직접 고르기"):
+                exact = st.selectbox("아픈 부위", ["선택", "눈", "귀", "코", "입·턱", "머리", "목", "가슴", "배", "등", "허리", "팔", "손", "골반", "다리", "무릎", "발"])
+                if exact != "선택" and st.button("이 부위 선택", use_container_width=True):
+                    st.session_state.health_part = exact
                     st.rerun()
         if st.button("다른 곳", use_container_width=True):
             st.session_state.health_part = "다른 곳"
@@ -727,15 +748,13 @@ def health_child():
     if step == 4:
         st.success("저장했어! 보호자에게 직접 알려줘.")
         if st.button("새 기록"):
-            for key in ["hs", "hp", "last_hp", "health_part"]: st.session_state.pop(key, None)
+            for key in ["hs", "hp", "last_hp", "health_part", "face_zoom", "face_marker"]: st.session_state.pop(key, None)
             st.rerun()
     if 0 < step < 4 and st.button("← 이전"):
         st.session_state.hs = step - 1
         st.rerun()
     with st.expander("📞 도움이 필요해"):
-        st.warning("혼자 약을 먹지 마세요. 숨쉬기 어렵거나 의식이 이상하면 즉시 어른과 119에 도움을 요청하세요.")
-        for person in rows(select(contacts).order_by(contacts.c.id)):
-            st.link_button(f"보호자 {person['id']} 전화", "tel:" + person["phone"], use_container_width=True)
+        st.warning("장난전화는 절대 안 돼! 119는 응급상황에 도움을 요청하는 번호야. 숨쉬기 힘들거나 크게 다쳤다면 어른이 곁에 있어도 바로 도움을 요청해. 혼자 약을 먹지 말고 보호자에게 알려줘.")
         st.link_button("119 전화", "tel:119")
         st.caption("자동 문자 발송은 없어요.")
 
@@ -886,7 +905,6 @@ elif page == "공부":
     study_view = st.segmented_control("화면", ["사진 인증", "달력"], default="달력", key="study_view_calendar_v2", label_visibility="collapsed")
     if study_view == "달력":
         render_calendar(camp, get_entries(camp["id"]) if camp else [])
-        if not camp: st.caption("보호자가 도전을 등록하면 공부 인증을 시작할 수 있어요.")
     else:
         child_page(camp)
 elif page == "건강": health_child()
