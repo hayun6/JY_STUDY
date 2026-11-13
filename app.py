@@ -855,6 +855,9 @@ def notifications():
             st.info(f"🔔 {r['day']} · " + ("성공 도장을 받았어요!" if r["status"] == "approved" else "부모님이 다시 도전할 부분을 알려 주셨어요."))
     st.caption("앱 내 알림 · 20초마다 확인 · 휴대폰 푸시/SMS 알림은 아니에요.")
 
+if st.session_state.get("role") == "child":
+    st.session_state.entered = True
+
 if not st.session_state.get("entered"):
     st.markdown('<div class="hero"><h1>🌱 준영이의 기록장</h1></div>', unsafe_allow_html=True)
     entry_label = "준영이의 기록 확인하러 가기" if st.session_state.get("role") == "parent" else "기록하러 가기"
@@ -872,23 +875,25 @@ if role == "parent":
     st.stop()
 
 page = st.session_state.get("mobile_page", "홈")
-with st.container(key="mobile_nav"):
-    cols = st.columns(4)
-    for col, label in zip(cols, ["🏠 홈", "📅 공부", "🩺 건강", "🎁 보상"]):
-        if col.button(label, use_container_width=True):
-            st.session_state.mobile_page = label.split(" ")[1]; st.rerun()
+if page != "홈":
+    if st.button("🏠 홈", key="top_home", use_container_width=True):
+        st.session_state.mobile_page = "홈"
+        st.rerun()
 camp = latest_campaign()
 if page == "홈":
     st.title("🌱 준영이의 기록장")
     st.markdown("""<style>
-.st-key-study_start button,.st-key-health_start button{width:100%!important;min-height:112px!important;margin:8px 0!important;border-radius:24px!important}
-.st-key-study_start button p,.st-key-health_start button p{font-size:28px!important;font-weight:800!important}
+.st-key-study_start button,.st-key-health_start button,.st-key-reward_start button{width:100%!important;min-height:112px!important;margin:8px 0!important;border-radius:24px!important}
+.st-key-study_start button p,.st-key-health_start button p,.st-key-reward_start button p{font-size:28px!important;font-weight:800!important}
 </style>""", unsafe_allow_html=True)
-    if st.button("📚 공부 기록하기", key="study_start", use_container_width=True, type="primary"):
+    if st.button("📚 공부", key="study_start", use_container_width=True, type="primary"):
         st.session_state.mobile_page = "공부"
         st.rerun()
-    if st.button("🩺 몸 상태 기록하기", key="health_start", use_container_width=True):
+    if st.button("🩺 몸 상태", key="health_start", use_container_width=True):
         st.session_state.mobile_page = "건강"
+        st.rerun()
+    if st.button("🎁 보상", key="reward_start", use_container_width=True):
+        st.session_state.mobile_page = "보상"
         st.rerun()
     with st.expander("설정"):
         if st.button("역할 바꾸기 / 로그아웃"):
