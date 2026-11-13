@@ -782,8 +782,25 @@ def parent_page(camp):
     st.title("🔐 부모님 관리실")
     if not parent_login():
         return
-    health_parent()
-    st.divider()
+    parent_view = st.session_state.get("parent_view", "menu")
+    if parent_view == "menu":
+        st.markdown("""<style>
+.st-key-parent_health button,.st-key-parent_study button{min-height:112px!important}
+.st-key-parent_health button p,.st-key-parent_study button p{font-size:26px!important;font-weight:800!important}
+</style>""", unsafe_allow_html=True)
+        if st.button("🩺 준영이 아픈 곳 보기", key="parent_health", use_container_width=True):
+            st.session_state.parent_view = "health"
+            st.rerun()
+        if st.button("📚 준영이 공부한 거 보러 가기", key="parent_study", use_container_width=True):
+            st.session_state.parent_view = "study"
+            st.rerun()
+        return
+    if st.button("← 보호자 메뉴", use_container_width=True):
+        st.session_state.parent_view = "menu"
+        st.rerun()
+    if parent_view == "health":
+        health_parent()
+        return
     if not camp or camp["opened_at"]:
         setup_campaign(camp)
     if not camp:
@@ -878,7 +895,7 @@ def notifications():
             st.info(f"🔔 {r['day']} · " + ("성공 도장을 받았어요!" if r["status"] == "approved" else "부모님이 다시 도전할 부분을 알려 주셨어요."))
     st.caption("앱 내 알림 · 20초마다 확인 · 휴대폰 푸시/SMS 알림은 아니에요.")
 
-if st.session_state.get("role") == "child":
+if st.session_state.get("role") in ("child", "parent"):
     st.session_state.entered = True
 
 if not st.session_state.get("entered"):
