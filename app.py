@@ -436,7 +436,6 @@ def child_page(camp):
     st.title("🌱 준영이의 공부 기록장")
     st.caption("조금씩, 꾸준히! 오늘의 노력을 도장으로 남겨요.")
     records = get_entries(camp["id"]) if camp else []
-    None  # 달력은 별도 화면에서 표시
     if not camp:
         st.info("부모님이 첫 공부 미션과 선물을 준비하고 있어요. 부모님 모드에서 시작해 주세요!")
         return
@@ -859,7 +858,7 @@ if page == "홈":
             st.warning("임시 저장 모드: 영구 보관에는 외부 DB 연결이 필요해요.")
 elif page == "공부":
     st.subheader("📅 공부")
-    study_view = st.segmented_control("화면", ["사진 인증", "달력"], default="달력", label_visibility="collapsed")
+    study_view = st.segmented_control("화면", ["사진 인증", "달력"], default="달력", key="study_view_calendar_v2", label_visibility="collapsed")
     if study_view == "달력":
         render_calendar(camp, get_entries(camp["id"]) if camp else [])
         if not camp: st.caption("보호자가 도전을 등록하면 공부 인증을 시작할 수 있어요.")
