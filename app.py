@@ -875,10 +875,9 @@ if role == "parent":
     st.stop()
 
 page = st.session_state.get("mobile_page", "홈")
-if page != "홈":
-    if st.button("🏠 홈", key="top_home", use_container_width=True):
-        st.session_state.mobile_page = "홈"
-        st.rerun()
+if st.button("🏠 홈", key="top_home", use_container_width=True):
+    st.session_state.mobile_page = "홈"
+    st.rerun()
 camp = latest_campaign()
 if page == "홈":
     st.title("🌱 준영이의 기록장")
