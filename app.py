@@ -674,9 +674,17 @@ def health_child():
             xx, yy = marker
             draw = ImageDraw.Draw(body)
             draw.ellipse((xx*body.width-10, yy*body.height-10, xx*body.width+10, yy*body.height+10), fill="#ff527c", outline="#b80b36", width=4)
-        with st.container(key="body_touch_fit"):
-            point = streamlit_image_coordinates(body, key="face_detail_v2" if face_mode else "body_detail_v2")
-        st.markdown("""<style>.st-key-body_touch_fit{max-width:100%!important}.st-key-body_touch_fit [data-testid="stElementContainer"]{display:flex!important;justify-content:center!important}.st-key-body_touch_fit iframe{max-width:100%!important;margin:auto!important;display:block!important}</style>""", unsafe_allow_html=True)
+        # 가운데 열에 컴포넌트를 배치해 다른 영역과 겹치지 않도록 합니다.
+        margin_left, picture_column, margin_right = st.columns([1, 4, 1], gap="small")
+        with picture_column:
+            with st.container(key="body_touch_fit"):
+                point = streamlit_image_coordinates(body, key="face_detail_v2" if face_mode else "body_detail_v2")
+        st.markdown("""<style>
+.st-key-body_touch_fit{display:block!important;width:100%!important;overflow:hidden}
+.st-key-body_touch_fit [data-testid="stElementContainer"]{display:block!important;width:100%!important}
+.st-key-body_touch_fit iframe{display:block!important;max-width:100%!important;margin:0 auto!important;position:static!important}
+@media(max-width:640px){[data-testid="stHorizontalBlock"]:has(.st-key-body_touch_fit){flex-wrap:nowrap!important;gap:0!important}[data-testid="stHorizontalBlock"]:has(.st-key-body_touch_fit)>[data-testid="stColumn"]{min-width:0!important}}
+</style>""", unsafe_allow_html=True)
         if point:
             xy = (point["x"] / body.width, point["y"] / body.height)
             token = (face_mode, xy)
@@ -743,8 +751,9 @@ def health_child():
         st.session_state.hs = step - 1
         st.rerun()
     with st.expander("📞 도움이 필요해"):
-        st.warning("장난전화는 절대 안 돼! 119는 응급상황에 도움을 요청하는 번호야. 숨쉬기 힘들거나 크게 다쳤다면 어른이 곁에 있어도 바로 도움을 요청해. 혼자 약을 먹지 말고 보호자에게 알려줘.")
-        st.link_button("119 전화", "tel:119")
+        st.warning("장난전화하면 누나한테 엎어치기 당한다! 😤 장난전화는 절대 금지!")
+        st.info("정말 아프거나 위험할 때만 119에 도움을 요청해! 주변에 어른이 있으면 바로 알려줘. 응급상황이면 어른이 곁에 있어도 119에 전화해도 돼.")
+        st.link_button("📞 119 전화", "tel:119", use_container_width=True)
 
 
 def parent_page(camp):
