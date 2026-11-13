@@ -657,7 +657,7 @@ def health_child():
     step = st.session_state.get("hs", 0)
     if step == 0:
         chosen = st.session_state.get("health_part", "")
-        st.markdown(f'<div style="text-align:center;font-size:30px;font-weight:800;padding:6px;border-radius:16px;background:#e7f0df">📍 {safe(chosen or "어디가 아파?")}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="health-part-heading">📍 {safe(chosen or "어디가 아파?")}</div>', unsafe_allow_html=True)
         original = Image.open(io.BytesIO(base64.b64decode(BODY_IMAGE))).convert("RGB")
         # 원본 비율 유지: 그림을 늘리거나 가로로 왜곡하지 않습니다.
         face_mode = st.session_state.get("face_zoom", False)
@@ -674,16 +674,15 @@ def health_child():
             xx, yy = marker
             draw = ImageDraw.Draw(body)
             draw.ellipse((xx*body.width-10, yy*body.height-10, xx*body.width+10, yy*body.height+10), fill="#ff527c", outline="#b80b36", width=4)
-        # 가운데 열에 컴포넌트를 배치해 다른 영역과 겹치지 않도록 합니다.
-        margin_left, picture_column, margin_right = st.columns([1, 4, 1], gap="small")
-        with picture_column:
-            with st.container(key="body_touch_fit"):
-                point = streamlit_image_coordinates(body, key="face_detail_v2" if face_mode else "body_detail_v2")
-        st.markdown("""<style>
-.st-key-body_touch_fit{display:block!important;width:100%!important;overflow:hidden}
-.st-key-body_touch_fit [data-testid="stElementContainer"]{display:block!important;width:100%!important}
-.st-key-body_touch_fit iframe{display:block!important;max-width:100%!important;margin:0 auto!important;position:static!important}
-@media(max-width:640px){[data-testid="stHorizontalBlock"]:has(.st-key-body_touch_fit){flex-wrap:nowrap!important;gap:0!important}[data-testid="stHorizontalBlock"]:has(.st-key-body_touch_fit)>[data-testid="stColumn"]{min-width:0!important}}
+        # 열 비율 대신 그림의 실제 폭으로 컴포넌트를 가운데 정렬합니다.
+        with st.container(key="body_touch_fit"):
+            point = streamlit_image_coordinates(body, key="face_detail_v3" if face_mode else "body_detail_v3")
+        st.markdown(f"""<style>
+.st-key-body_touch_fit{{display:block!important;width:100%!important;overflow:visible!important;margin-top:18px!important;padding-top:4px!important;position:relative!important;clear:both!important}}
+.st-key-body_touch_fit [data-testid="stElementContainer"]{{width:{body.width}px!important;max-width:100%!important;flex:none!important;align-self:center!important;margin-left:auto!important;margin-right:auto!important;position:static!important;transform:none!important}}
+.st-key-body_touch_fit iframe{{width:{body.width}px!important;max-width:100%!important;display:block!important;margin:0 auto!important;position:static!important;transform:none!important}}
+.st-key-body_touch_fit [data-testid="stVerticalBlock"]{{align-items:center!important;gap:0!important}}
+.health-part-heading{{position:relative;z-index:1;display:block;box-sizing:border-box;width:100%;text-align:center;font-size:30px;font-weight:800;padding:12px 8px;border-radius:16px;background:#e7f0df;margin:0 0 16px;line-height:1.35}}
 </style>""", unsafe_allow_html=True)
         if point:
             xy = (point["x"] / body.width, point["y"] / body.height)
