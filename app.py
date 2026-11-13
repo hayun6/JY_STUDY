@@ -621,7 +621,6 @@ health_meta.create_all(engine)
 
 def health_parent():
     st.subheader("🩺 준영이 건강 확인함")
-    st.caption("알림은 앱 안에서만 보여요. 앱을 닫은 휴대폰에 문자·푸시가 자동 발송되지는 않습니다.")
     reports = rows(select(health).order_by(health.c.id.desc()).limit(100))
     if not reports:
         st.info("아직 건강 기록이 없어요.")
@@ -709,6 +708,9 @@ def health_child():
                 elif .12 < x < .88 and .30 <= y < .57: region = "손" if y >= .47 else "팔"
                 elif .26 < x < .74 and .62 <= y < .96: region = "발" if y >= .86 else ("무릎" if .69 <= y < .78 else "다리")
                 if region:
+                    # 정면 그림 기준: 화면 왼쪽은 준영이의 오른쪽입니다.
+                    if region in ("발", "무릎", "다리", "손", "팔", "눈", "귀"):
+                        region = ("오른쪽 " if x < .5 else "왼쪽 ") + region
                     st.session_state.health_part = region
                     if not face_mode: st.session_state.hp = xy
                     st.rerun()
@@ -875,9 +877,10 @@ if role == "parent":
     st.stop()
 
 page = st.session_state.get("mobile_page", "홈")
-if st.button("🏠 홈", key="top_home", use_container_width=True):
-    st.session_state.mobile_page = "홈"
-    st.rerun()
+if page != "홈":
+    if st.button("🏠 홈", key="top_home", use_container_width=True):
+        st.session_state.mobile_page = "홈"
+        st.rerun()
 camp = latest_campaign()
 if page == "홈":
     st.title("🌱 준영이의 기록장")
