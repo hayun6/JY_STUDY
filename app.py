@@ -646,8 +646,15 @@ BODY_IMAGE = 'iVBORw0KGgoAAAANSUhEUgAAA1AAAATwCAYAAAD6oKFRAAEAAElEQVR4nKz9edRt2X
 
 def health_child():
     st.markdown("### 🩺 내 몸 살피기")
+    st.markdown("""<style>
+/* 건강 화면 전용: 브라우저의 실제 가용 높이에 맞추고 그림을 축소합니다. */
+[data-testid="stMainBlockContainer"]{padding-top:0!important;padding-bottom:100px!important}
+[data-testid="stVerticalBlock"]{gap:.3rem!important}
+.st-key-mobile_nav{bottom:calc(8px + env(safe-area-inset-bottom,0px))!important}
+.st-key-body_touch_fit{display:flex;justify-content:center}
+.st-key-body_touch_fit iframe{display:block!important;margin:0 auto!important;max-width:100%!important}
+</style>""", unsafe_allow_html=True)
     step = st.session_state.get("hs", 0)
-    st.progress(min(step, 3) / 3)
     if step == 0:
         chosen = st.session_state.get("health_part", "")
         st.markdown(f'<div style="text-align:center;font-size:30px;font-weight:800;padding:6px;border-radius:16px;background:#e7f0df">📍 {safe(chosen or "어디가 아파?")}</div>', unsafe_allow_html=True)
@@ -657,10 +664,10 @@ def health_child():
         if face_mode:
             w, h = original.size
             body = original.crop((int(w*.30), int(h*.015), int(w*.70), int(h*.255)))
-            body.thumbnail((300, 240))
+            body.thumbnail((250, 180))
         else:
             body = original.copy()
-            body.thumbnail((310, 390))
+            body.thumbnail((220, 280))
         from PIL import ImageDraw
         marker = st.session_state.get("face_marker" if face_mode else "hp")
         if marker:
