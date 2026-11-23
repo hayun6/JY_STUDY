@@ -577,7 +577,7 @@ def setup_campaign(camp):
                 st.rerun()
             else: st.error("내용을 입력해 주세요")
     else:
-        ok = st.button("이 도전 시작하기", type="primary", use_container_width=True)
+        ok = st.button("준영이 도전 등록하기", type="primary", use_container_width=True)
     if stage > 0 and st.button("← 이전", key="challenge_back"):
         st.session_state.challenge_stage = stage - 1
         st.rerun()
