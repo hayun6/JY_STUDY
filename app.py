@@ -937,9 +937,12 @@ if page == "홈":
     sticker_row([0, 6])
     st.markdown("""<style>
 .st-key-study_start button,.st-key-health_start button,.st-key-reward_start button{width:100%!important;min-height:112px!important;margin:8px 0!important;border-radius:24px!important}
+:is(.st-key-study_start,.st-key-health_start,.st-key-reward_start) button:not(:active){background:#fff!important;color:#263c36!important;border-color:#d8d5cf!important}
+:is(.st-key-study_start,.st-key-health_start,.st-key-reward_start) button:active{background:#315f4b!important;color:#fff!important;border-color:#315f4b!important}
+:is(.st-key-study_start,.st-key-health_start,.st-key-reward_start) button:active p{color:#fff!important}
 .st-key-study_start button p,.st-key-health_start button p,.st-key-reward_start button p{font-size:28px!important;font-weight:800!important}
 </style>""", unsafe_allow_html=True)
-    if st.button("📚 공부", key="study_start", use_container_width=True, type="primary"):
+    if st.button("📚 공부", key="study_start", use_container_width=True):
         st.session_state.mobile_page = "공부"
         st.rerun()
     if st.button("🩺 몸 상태", key="health_start", use_container_width=True):
