@@ -450,7 +450,7 @@ def render_calendar(camp, records):
 
 
 def study_photo_form(camp, day, mission, entry, direct=False):
-    source = "카메라로 찍기" if direct else st.radio("사진 인증 방법", ["사진 고르기", "카메라로 찍기"], horizontal=True)
+    source = "카메라로 찍기" if direct else st.radio("사진 인증 방법", ["사진 고르기", "카메라로 찍기"], index=1, horizontal=True)
     st.caption("휴대폰에서는 사진 고르기로도 촬영할 수 있어요. 얼굴·이름·주소는 찍지 마세요.")
     upload = (st.file_uploader("공부한 사진 한 장", type=["jpg", "jpeg", "png"], key=f"upload_{camp['id']}_{day}")
               if source == "사진 고르기" else st.camera_input("공부한 내용을 찰칵!", key=f"camera_{camp['id']}_{day}"))
@@ -507,7 +507,7 @@ def child_page(camp):
     day = today().isoformat()
     entry = next((r for r in records if r["day"] == day), None)
     if st.session_state.get("direct_camera") and not camp["opened_at"] and camp["start_day"] <= day and (not entry or entry["status"] == "retry"):
-        study_photo_form(camp, day, mission_for(camp, day), entry, direct=True)
+        study_photo_form(camp, day, mission_for(camp, day), entry)
         return
     count = sum(r["status"] == "approved" for r in records)
     st.markdown("### 🎁 나의 보물상자")
@@ -543,10 +543,8 @@ def child_page(camp):
     elif entry and entry["status"] == "pending":
         st.info("⏳ 사진을 보냈어요. 부모님이 확인 중이에요!")
         st.caption("아래 알림함이 자동으로 갱신돼요. 승인 후 ‘화면 새로고침’을 누르면 달력도 바뀌어요.")
-    else:
-        if entry:
-            st.warning("🌱 조금만 더 해 볼까? " + entry["feedback"])
-        study_photo_form(camp, day, mission, entry)
+    elif entry:
+        st.warning("🌱 조금만 더 해 볼까? " + entry["feedback"])
     with st.expander("📖 이전 기록과 부모님 말씀"):
         for r in records[:60]:
             st.write(f"{r['day']} · " + {"approved": "⭐ 성공", "pending": "⏳ 확인 중", "retry": "🌱 다시 도전"}[r["status"]])
