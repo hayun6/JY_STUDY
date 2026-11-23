@@ -480,6 +480,11 @@ def child_page(camp):
     records = get_entries(camp["id"]) if camp else []
     st.markdown("""<style>.st-key-go_camera button{min-height:112px!important}.st-key-go_camera button p{font-size:28px!important;font-weight:800!important}</style>""", unsafe_allow_html=True)
     if not st.session_state.get("direct_camera"):
+        if camp and not camp["opened_at"]:
+            st.markdown("### ✏️ 오늘의 미션")
+            day = today().isoformat()
+            mission = mission_for(camp, day)
+            st.markdown(f'<div class="card"><strong>{safe(mission)}</strong><br><small>{day} · 사진 한 장이면 인증 끝!</small></div>', unsafe_allow_html=True)
         if st.button("📸 사진 찍으러 가기", key="go_camera", type="primary", use_container_width=True):
             st.session_state.direct_camera = True
             st.rerun()
@@ -531,10 +536,6 @@ def child_page(camp):
     if camp["opened_at"]:
         st.info("이번 도전은 끝났어요! 부모님이 다음 도전을 만들면 다시 시작할 수 있어요.")
         return
-    st.markdown("### ✏️ 오늘의 미션")
-    day = today().isoformat()
-    mission = mission_for(camp, day)
-    st.markdown(f'<div class="card"><strong>{safe(mission)}</strong><br><small>{day} · 사진 한 장이면 인증 끝!</small></div>', unsafe_allow_html=True)
     entry = next((r for r in records if r["day"] == day), None)
     if entry and entry["status"] == "approved":
         st.success("⭐ 오늘 공부 성공! 부모님이 도장을 찍어 주셨어요.")
