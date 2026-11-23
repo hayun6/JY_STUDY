@@ -449,13 +449,41 @@ def render_calendar(camp, records):
     st.markdown('<div class="calendar">' + ''.join(cells) + '</div>', unsafe_allow_html=True)
 
 
+def study_photo_form(camp, day, mission, entry, direct=False):
+    source = "카메라로 찍기" if direct else st.radio("사진 인증 방법", ["사진 고르기", "카메라로 찍기"], horizontal=True)
+    st.caption("휴대폰에서는 사진 고르기로도 촬영할 수 있어요. 얼굴·이름·주소는 찍지 마세요.")
+    upload = (st.file_uploader("공부한 사진 한 장", type=["jpg", "jpeg", "png"], key=f"upload_{camp['id']}_{day}")
+              if source == "사진 고르기" else st.camera_input("공부한 내용을 찰칵!", key=f"camera_{camp['id']}_{day}"))
+    if upload:
+        st.image(upload, caption="부모님께 보낼 사진", width=320)
+    note = st.text_input("한마디 남기기 (선택)", placeholder="오늘도 열심히 했어!", max_chars=100)
+    if st.button("📸 부모님께 인증 보내기", type="primary", use_container_width=True, disabled=upload is None):
+        try:
+            photo = compress_photo(upload)
+            with engine.begin() as c:
+                fresh = c.execute(select(campaigns).order_by(campaigns.c.id.desc()).limit(1)).mappings().first()
+                if not fresh or fresh["id"] != camp["id"] or fresh["opened_at"] or fresh["start_day"] > day:
+                    raise ValueError("도전이 바뀌었어요. 화면을 새로고침해 주세요.")
+                if entry:
+                    result = c.execute(update(entries).where(entries.c.id == entry["id"], entries.c.status == "retry").values(photo=photo, note=note, status="pending", feedback="", created_at=now(), reviewed_at=None))
+                    if result.rowcount != 1:
+                        raise ValueError("이미 처리된 기록이에요. 새로고침해 주세요.")
+                else:
+                    c.execute(insert(entries).values(campaign_id=camp["id"], day=day, mission=mission, status="pending", photo=photo, note=note, feedback="", created_at=now()))
+            st.rerun()
+        except (ValueError, IntegrityError) as exc:
+            st.error(str(exc) if isinstance(exc, ValueError) else "오늘 사진은 이미 접수됐어요. 새로고침해 주세요.")
+
+
 def child_page(camp):
     st.title("🌱 준영이의 공부 기록장")
-    st.caption("조금씩, 꾸준히! 오늘의 노력을 도장으로 남겨요.")
     records = get_entries(camp["id"]) if camp else []
     st.markdown("""<style>.st-key-go_camera button{min-height:112px!important}.st-key-go_camera button p{font-size:28px!important;font-weight:800!important}</style>""", unsafe_allow_html=True)
     if st.button("📸 사진 찍으러 가기", key="go_camera", type="primary", use_container_width=True):
         st.session_state.direct_camera = True
+    if st.session_state.get("direct_camera") and st.button("← 공부 화면", key="close_camera"):
+        st.session_state.direct_camera = False
+        st.rerun()
     if not camp:
         if st.session_state.get("direct_camera"):
             snap = st.camera_input("공부한 내용을 찰칵!", key="free_study_camera")
@@ -473,6 +501,11 @@ def child_page(camp):
                 except Exception:
                     st.error("사진을 저장하지 못했어. 다시 시도해 줘.")
             st.caption("카메라가 안 열리면 브라우저의 카메라 권한을 허용해 주세요.")
+        return
+    day = today().isoformat()
+    entry = next((r for r in records if r["day"] == day), None)
+    if st.session_state.get("direct_camera") and not camp["opened_at"] and camp["start_day"] <= day and (not entry or entry["status"] == "retry"):
+        study_photo_form(camp, day, mission_for(camp, day), entry, direct=True)
         return
     count = sum(r["status"] == "approved" for r in records)
     st.markdown("### 🎁 나의 보물상자")
@@ -511,29 +544,7 @@ def child_page(camp):
     else:
         if entry:
             st.warning("🌱 조금만 더 해 볼까? " + entry["feedback"])
-        source = "카메라로 찍기" if st.session_state.get("direct_camera") else st.radio("사진 인증 방법", ["사진 고르기", "카메라로 찍기"], horizontal=True)
-        st.caption("휴대폰에서는 사진 고르기로도 촬영할 수 있어요. 얼굴·이름·주소는 찍지 마세요.")
-        upload = (st.file_uploader("공부한 사진 한 장", type=["jpg", "jpeg", "png"], key=f"upload_{camp['id']}_{day}")
-                  if source == "사진 고르기" else st.camera_input("공부한 내용을 찰칵!", key=f"camera_{camp['id']}_{day}"))
-        if upload:
-            st.image(upload, caption="부모님께 보낼 사진", width=320)
-        note = st.text_input("한마디 남기기 (선택)", placeholder="오늘도 열심히 했어!", max_chars=100)
-        if st.button("📸 부모님께 인증 보내기", type="primary", use_container_width=True, disabled=upload is None):
-            try:
-                photo = compress_photo(upload)
-                with engine.begin() as c:
-                    fresh = c.execute(select(campaigns).order_by(campaigns.c.id.desc()).limit(1)).mappings().first()
-                    if not fresh or fresh["id"] != camp["id"] or fresh["opened_at"] or fresh["start_day"] > day:
-                        raise ValueError("도전이 바뀌었어요. 화면을 새로고침해 주세요.")
-                    if entry:
-                        result = c.execute(update(entries).where(entries.c.id == entry["id"], entries.c.status == "retry").values(photo=photo, note=note, status="pending", feedback="", created_at=now(), reviewed_at=None))
-                        if result.rowcount != 1:
-                            raise ValueError("이미 처리된 기록이에요. 새로고침해 주세요.")
-                    else:
-                        c.execute(insert(entries).values(campaign_id=camp["id"], day=day, mission=mission, status="pending", photo=photo, note=note, feedback="", created_at=now()))
-                st.rerun()
-            except (ValueError, IntegrityError) as exc:
-                st.error(str(exc) if isinstance(exc, ValueError) else "오늘 사진은 이미 접수됐어요. 새로고침해 주세요.")
+        study_photo_form(camp, day, mission, entry)
     with st.expander("📖 이전 기록과 부모님 말씀"):
         for r in records[:60]:
             st.write(f"{r['day']} · " + {"approved": "⭐ 성공", "pending": "⏳ 확인 중", "retry": "🌱 다시 도전"}[r["status"]])
