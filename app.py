@@ -479,8 +479,10 @@ def child_page(camp):
     st.title("🌱 준영이의 공부 기록장")
     records = get_entries(camp["id"]) if camp else []
     st.markdown("""<style>.st-key-go_camera button{min-height:112px!important}.st-key-go_camera button p{font-size:28px!important;font-weight:800!important}</style>""", unsafe_allow_html=True)
-    if st.button("📸 사진 찍으러 가기", key="go_camera", type="primary", use_container_width=True):
-        st.session_state.direct_camera = True
+    if not st.session_state.get("direct_camera"):
+        if st.button("📸 사진 찍으러 가기", key="go_camera", type="primary", use_container_width=True):
+            st.session_state.direct_camera = True
+            st.rerun()
     if st.session_state.get("direct_camera") and st.button("← 공부 화면", key="close_camera"):
         st.session_state.direct_camera = False
         st.rerun()
